@@ -41,16 +41,28 @@ export async function GET(req: Request) {
     console.warn('status reservations query failed (HOLD may not exist yet):', rErr.message);
   }
 
-  // 2) Aktif table_sessions bul
+  // 2) Aktif table_sessions bul (Sadece 'start' bugünün cafe günündeyse)
   let sessionIds = new Set<string>();
-  try {
-    const { data: activeSessions } = await supabase
-      .from('table_sessions')
-      .select('table_id')
-      .is('ended_at', null);
-    sessionIds = new Set((activeSessions ?? []).map((s: any) => s.table_id));
-  } catch {
-    // table_sessions tablosu yoksa yoksay
+  
+  function getCafeDate(d: Date) {
+    const trTimeMs = d.getTime() + (3 * 60 * 60 * 1000);
+    const trDate = new Date(trTimeMs);
+    trDate.setUTCHours(trDate.getUTCHours() - 2);
+    return trDate.toISOString().split('T')[0];
+  }
+
+  const isSameCafeDay = getCafeDate(new Date(start)) === getCafeDate(new Date());
+
+  if (isSameCafeDay) {
+    try {
+      const { data: activeSessions } = await supabase
+        .from('table_sessions')
+        .select('table_id')
+        .is('ended_at', null);
+      sessionIds = new Set((activeSessions ?? []).map((s: any) => s.table_id));
+    } catch {
+      // table_sessions tablosu yoksa yoksay
+    }
   }
 
   // 3) Tüm masaları çek — oda ve kategori fiyatı ile
