@@ -14,6 +14,7 @@ import {
 import {
   AccessTime,
   Cancel,
+  Chat,
   Edit,
   Event,
   Group,
@@ -82,6 +83,7 @@ interface Props {
   showOwner?: boolean;
   onCancel?: (id: string) => void;
   onEdit?: (r: ReservationRow) => void;
+  onOpenMessages?: (id: string) => void;
   actions?: React.ReactNode;
 }
 
@@ -90,6 +92,7 @@ export default function ReservationCard({
   showOwner,
   onCancel,
   onEdit,
+  onOpenMessages,
   actions,
 }: Props) {
   const statusColor = RESERVATION_COLOR[r.status];
@@ -137,6 +140,16 @@ export default function ReservationCard({
             {onEdit && editable && (
               <IconButton size="small" onClick={() => onEdit(r)}>
                 <Edit fontSize="small" />
+              </IconButton>
+            )}
+            {onOpenMessages && (
+              <IconButton
+                size="small"
+                color="primary"
+                onClick={() => onOpenMessages(r.id)}
+                title="Mesajlar"
+              >
+                <Chat fontSize="small" />
               </IconButton>
             )}
             {onCancel && cancelable && (

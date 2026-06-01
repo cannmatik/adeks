@@ -56,7 +56,7 @@ export async function GET(req: Request) {
   // 3) Tüm masaları çek — oda ve kategori fiyatı ile
   const { data: tables, error: tErr } = await supabase
     .from('tables')
-    .select('id, number, category, status, pc_id, position_x, position_y, notes, room:rooms(id, name, description, color, display_order, floor, floor_col, floor_row, col_span, row_span, category)')
+    .select('id, number, category, status, pc_id, position_x, position_y, notes, shape, room:rooms(id, name, description, color, display_order, floor, floor_col, floor_row, col_span, row_span, category)')
     .order('number', { ascending: true });
 
   if (tErr) {

@@ -5,30 +5,36 @@ import { Box, Button, Chip, Stack, Typography, Alert, CircularProgress, Paper, T
 import { EventAvailable, Clear } from '@mui/icons-material';
 import { CafeTable } from '@/components/tables/TableCard';
 import RoomLayout from '@/components/tables/RoomLayout';
-import { CATEGORY_META, TableCategory } from '@/lib/categories';
+import { TableCategory } from '@/lib/categories';
+import { useCategories } from '@/components/CategoryProvider';
 
-const categories: (TableCategory | 'ALL')[] = ['ALL', 'SILVER', 'GOLD', 'PLATINUM', 'PLATINUM_PLUS', 'ELITE', 'STREAM_RENDER'];
+import dayjs, { Dayjs } from 'dayjs';
+import 'dayjs/locale/tr';
+import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
+import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
+import { DateTimePicker } from '@mui/x-date-pickers/DateTimePicker';
+
+dayjs.locale('tr');
 
 function defaultStart() {
-  const d = new Date();
-  d.setSeconds(0, 0);
-  return d.toISOString().slice(0, 16);
+  return dayjs().second(0).millisecond(0);
 }
 function defaultEnd() {
-  const d = new Date();
-  d.setMinutes(d.getMinutes() + 30, 0, 0);
-  return d.toISOString().slice(0, 16);
+  return dayjs().add(30, 'minute').second(0).millisecond(0);
 }
 
 export default function DashboardPage() {
+  const { categories: dbCategories, categoryMeta } = useCategories();
+  const categoriesList = useMemo(() => ['ALL', ...dbCategories.map((c) => c.name)], [dbCategories]);
+
   const [tables, setTables] = useState<CafeTable[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [filter, setFilter] = useState<TableCategory | 'ALL'>('ALL');
   const [floor, setFloor] = useState<string>('ALL');
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [start, setStart] = useState(defaultStart());
-  const [end, setEnd] = useState(defaultEnd());
+  const [start, setStart] = useState<Dayjs>(defaultStart());
+  const [end, setEnd] = useState<Dayjs>(defaultEnd());
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState('');
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -47,8 +53,8 @@ export default function DashboardPage() {
     setSelectedIds(new Set());
     try {
       const url = new URL('/api/tables/status', window.location.origin);
-      url.searchParams.set('start', new Date(startRef.current).toISOString());
-      url.searchParams.set('end', new Date(endRef.current).toISOString());
+      url.searchParams.set('start', startRef.current.toISOString());
+      url.searchParams.set('end', endRef.current.toISOString());
       const res = await fetch(url.toString());
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Yüklenemedi');
@@ -75,8 +81,8 @@ export default function DashboardPage() {
   const clearSelection = () => setSelectedIds(new Set());
 
   const totalRate = useMemo(
-    () => selectedTables.reduce((sum, t) => sum + CATEGORY_META[t.category].defaultRate, 0),
-    [selectedTables],
+    () => selectedTables.reduce((sum, t) => sum + (categoryMeta[t.category]?.defaultRate ?? 0), 0),
+    [selectedTables, categoryMeta],
   );
 
   const handleReserveClick = () => {
@@ -96,8 +102,8 @@ export default function DashboardPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           table_ids: selectedTables.map((t) => t.id),
-          start_time: new Date(start).toISOString(),
-          end_time: new Date(end).toISOString(),
+          start_time: start.toISOString(),
+          end_time: end.toISOString(),
           notes: confirmNotes || null,
           contact_phone: confirmPhone.trim() || null,
         }),
@@ -117,6 +123,7 @@ export default function DashboardPage() {
 
   const filtered = useMemo(() => {
     return tables.filter((t) => {
+      if (t.status === 'MAINTENANCE') return false;
       if (floor !== 'ALL' && t.room?.floor !== floor) return false;
       if (filter !== 'ALL' && t.category !== filter) return false;
       return true;
@@ -132,38 +139,43 @@ export default function DashboardPage() {
 
   return (
     <Box>
-      <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ justifyContent: 'space-between', alignItems: { xs: 'flex-start', sm: 'center' }, mb: 3 }}>
-        <Box>
-          <Typography variant="h4" sx={{ mb: 0.5 }}>Salon Düzeni</Typography>
-          <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-            Tarih aralığı seç ve müsait masaları gör — çoklu seçim yaparak rezervasyon oluştur.
-          </Typography>
-        </Box>
-      </Stack>
+      <Box sx={{ mb: 3 }}>
+        <Typography variant="h4" sx={{ mb: 0.5, fontSize: { xs: '1.5rem', md: '2.125rem' } }}>Salon Düzeni</Typography>
+        <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+          Tarih aralığı seç ve müsait masaları gör — çoklu seçim yaparak rezervasyon oluştur.
+        </Typography>
+      </Box>
 
       {/* Tarih seçimi */}
       <Paper elevation={0} sx={{ p: 2, borderRadius: 2, border: '1px solid', borderColor: 'divider', mb: 3 }}>
-        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ alignItems: 'center' }}>
-          <TextField
-            label="Başlangıç"
-            type="datetime-local"
-            value={start}
-            onChange={(e) => setStart(e.target.value)}
-            slotProps={{ inputLabel: { shrink: true } }}
-            fullWidth
-          />
-          <TextField
-            label="Bitiş"
-            type="datetime-local"
-            value={end}
-            onChange={(e) => setEnd(e.target.value)}
-            slotProps={{ inputLabel: { shrink: true } }}
-            fullWidth
-          />
-          <Button variant="contained" size="large" startIcon={<EventAvailable />} onClick={load} disabled={loading} sx={{ flexShrink: 0 }}>
-            Masaları Getir
-          </Button>
-        </Stack>
+        <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="tr">
+          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ alignItems: 'center' }}>
+            <DateTimePicker
+              label="Başlangıç"
+              value={start}
+              onChange={(newValue) => {
+                if (newValue) {
+                  const duration = end.diff(start);
+                  setStart(newValue);
+                  setEnd(newValue.add(duration, 'millisecond'));
+                }
+              }}
+              sx={{ width: '100%' }}
+            />
+            <DateTimePicker
+              label="Bitiş"
+              value={end}
+              minDateTime={start.add(30, 'minute')}
+              onChange={(newValue) => {
+                if (newValue) setEnd(newValue);
+              }}
+              sx={{ width: '100%' }}
+            />
+            <Button variant="contained" size="large" startIcon={<EventAvailable />} onClick={load} disabled={loading} sx={{ flexShrink: 0 }}>
+              Müsaitlik Durumu
+            </Button>
+          </Stack>
+        </LocalizationProvider>
       </Paper>
 
       {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>{error}</Alert>}
@@ -171,7 +183,7 @@ export default function DashboardPage() {
 
       {(
         <>
-          <Stack direction="row" spacing={1} sx={{ mb: 1.5 }}>
+          <Stack direction="row" spacing={1} sx={{ mb: 1.5, flexWrap: 'wrap', gap: 1 }}>
             <Chip
               key="ALL"
               label="Tümü"
@@ -193,15 +205,15 @@ export default function DashboardPage() {
           </Stack>
 
           <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', gap: 1, mb: 3 }}>
-            {categories.map((c) => (
+            {categoriesList.map((c) => (
               <Chip
                 key={c}
-                label={c === 'ALL' ? 'Tümü' : CATEGORY_META[c].label}
+                label={c === 'ALL' ? 'Tümü' : (categoryMeta[c]?.label ?? c)}
                 onClick={() => setFilter(c)}
                 color={filter === c ? 'primary' : 'default'}
                 variant={filter === c ? 'filled' : 'outlined'}
                 size="small"
-                sx={c !== 'ALL' && filter !== c ? { borderColor: CATEGORY_META[c].color + '80', color: CATEGORY_META[c].color } : undefined}
+                sx={c !== 'ALL' && filter !== c ? { borderColor: (categoryMeta[c]?.color ?? '#C0C0C0') + '80', color: categoryMeta[c]?.color ?? '#C0C0C0' } : undefined}
               />
             ))}
           </Stack>
@@ -271,7 +283,7 @@ export default function DashboardPage() {
             <Box>
               <Typography variant="body2" sx={{ color: 'text.secondary', mb: 0.5 }}>Tarih Aralığı</Typography>
               <Typography variant="body1" sx={{ fontWeight: 600 }}>
-                {new Date(start).toLocaleString('tr-TR')} — {new Date(end).toLocaleString('tr-TR')}
+                {start.toDate().toLocaleString('tr-TR')} — {end.toDate().toLocaleString('tr-TR')}
               </Typography>
             </Box>
 
@@ -279,7 +291,7 @@ export default function DashboardPage() {
               <Typography variant="body2" sx={{ color: 'text.secondary', mb: 0.5 }}>Seçili Masalar ({selectedTables.length})</Typography>
               <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', gap: 1 }}>
                 {selectedTables.map((t) => (
-                  <Chip key={t.id} label={`#${t.number} · ${CATEGORY_META[t.category].label}`} size="small" />
+                  <Chip key={t.id} label={`#${t.number} · ${categoryMeta[t.category]?.label ?? t.category}`} size="small" />
                 ))}
               </Stack>
             </Box>

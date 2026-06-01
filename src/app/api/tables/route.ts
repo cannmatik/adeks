@@ -6,7 +6,7 @@ export async function GET() {
   const [tablesRes, ratesRes] = await Promise.all([
     supabase
       .from('tables')
-      .select('id, number, category, status, position_x, position_y, notes, room:rooms(id, name, description, color, display_order, floor, floor_col, floor_row, col_span, row_span, category)')
+      .select('id, number, category, status, position_x, position_y, notes, shape, room:rooms(id, name, description, color, display_order, floor, floor_col, floor_row, col_span, row_span, category)')
       .order('number', { ascending: true }),
     supabase.from('categories').select('name, hourly_rate'),
   ]);
@@ -44,7 +44,7 @@ export async function POST(req: Request) {
   if ('error' in auth) return NextResponse.json({ error: auth.error }, { status: auth.status });
 
   const body = await req.json();
-  const { number, category, status, notes, room_id, position_x, position_y, pc_id } = body;
+  const { number, category, status, notes, room_id, position_x, position_y, pc_id, shape } = body;
 
   if (!number || !category) {
     return NextResponse.json({ error: 'number ve category zorunlu' }, { status: 400 });
@@ -61,6 +61,7 @@ export async function POST(req: Request) {
       position_x: position_x ?? 0,
       position_y: position_y ?? 0,
       pc_id: pc_id ?? null,
+      shape: shape ?? 'SQUARE',
     })
     .select()
     .single();

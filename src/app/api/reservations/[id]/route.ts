@@ -13,11 +13,18 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
   const { status, notes, start_time, end_time, contact_phone } = body;
 
   const update: Record<string, unknown> = {};
-  if (status) update.status = status;
+  if (status) {
+    update.status = status;
+    if (status === 'CANCELLED' || status === 'COMPLETED') {
+      update.contact_phone = null;
+    }
+  }
   if (notes !== undefined) update.notes = notes;
   if (start_time) update.start_time = start_time;
   if (end_time) update.end_time = end_time;
-  if (contact_phone !== undefined) update.contact_phone = contact_phone.trim() || null;
+  if (contact_phone !== undefined && update.contact_phone !== null) {
+    update.contact_phone = contact_phone.trim() || null;
+  }
 
   if (Object.keys(update).length === 0) {
     return NextResponse.json({ error: 'Güncellenecek alan yok' }, { status: 400 });

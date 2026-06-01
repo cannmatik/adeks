@@ -1,10 +1,15 @@
 'use client';
 
 import { Chip } from '@mui/material';
-import { CATEGORY_META, TableCategory } from '@/lib/categories';
+import { TableCategory } from '@/lib/categories';
+import { useCategories } from '@/components/CategoryProvider';
 
 export default function CategoryBadge({ category, size = 'small' }: { category: TableCategory; size?: 'small' | 'medium' }) {
-  const meta = CATEGORY_META[category];
+  const { categoryMeta } = useCategories();
+  const meta = categoryMeta[category] ?? {
+    label: category,
+    color: '#C0C0C0',
+  };
   return (
     <Chip
       label={meta.label.toUpperCase()}

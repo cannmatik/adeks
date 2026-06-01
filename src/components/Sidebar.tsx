@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
+import { useEffect, useState } from 'react';
 import {
   Box,
   Drawer,
@@ -14,6 +15,12 @@ import {
   Typography,
   Divider,
   IconButton,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  TextField,
+  Button,
 } from '@mui/material';
 import {
   Dashboard as DashboardIcon,
@@ -26,6 +33,9 @@ import {
   SportsEsports,
   Bolt,
   Map,
+  Person,
+  Close,
+  Category as CategoryIcon,
 } from '@mui/icons-material';
 import { useAuth } from './AuthProvider';
 import { createClient } from '@/lib/supabase/client';
@@ -35,42 +45,89 @@ const DRAWER_WIDTH = 240;
 const customerLinks = [
   { href: '/dashboard', label: 'Masalar', icon: <DashboardIcon /> },
   { href: '/reservations', label: 'Rezervasyonlarım', icon: <EventSeat /> },
-  { href: '/messages', label: 'Mesajlar', icon: <Chat /> },
 ];
 
 const adminLinks = [
   { href: '/admin/sessions', label: 'Anlık Durum', icon: <Bolt /> },
   { href: '/admin/floor-plan', label: 'Salon Düzeni', icon: <Map /> },
   { href: '/admin/tables', label: 'Masa Yönetimi', icon: <TableRestaurant /> },
+  { href: '/admin/categories', label: 'Kategori Yönetimi', icon: <CategoryIcon /> },
   { href: '/admin/reservations', label: 'Rezervasyonlar', icon: <EventAvailable /> },
-  { href: '/admin/messages', label: 'Tüm Mesajlar', icon: <Chat /> },
 ];
 
-export default function Sidebar() {
+interface SidebarProps {
+  mobileOpen?: boolean;
+  onMobileClose?: () => void;
+  variant?: 'permanent' | 'temporary';
+}
+
+export default function Sidebar({ mobileOpen = false, onMobileClose, variant = 'permanent' }: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
   const { role, user } = useAuth();
   const supabase = createClient();
+
+  const [profileOpen, setProfileOpen] = useState(false);
+  const [fullName, setFullName] = useState('');
+  const [adeksMemberNo, setAdeksMemberNo] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [profileError, setProfileError] = useState('');
+
+  useEffect(() => {
+    if (user) {
+      supabase
+        .from('profiles')
+        .select('full_name, adeks_member_no')
+        .eq('id', user.id)
+        .single()
+        .then(({ data }) => {
+          if (data) {
+            setFullName(data.full_name ?? '');
+            setAdeksMemberNo(data.adeks_member_no ?? '');
+          }
+        });
+    }
+  }, [user, supabase]);
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
     router.push('/login');
   };
 
-  return (
-    <Drawer
-      variant="permanent"
-      sx={{
-        width: DRAWER_WIDTH,
-        flexShrink: 0,
-        '& .MuiDrawer-paper': { width: DRAWER_WIDTH, boxSizing: 'border-box', borderRight: 1, borderColor: 'divider' },
-      }}
-    >
+  const handleSaveProfile = async () => {
+    setSaving(true);
+    setProfileError('');
+    try {
+      const res = await fetch('/api/profile', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          full_name: fullName.trim() || null,
+          adeks_member_no: adeksMemberNo.trim() || null,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Güncellenemedi');
+      setProfileOpen(false);
+    } catch (err: any) {
+      setProfileError(err.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const drawerContent = (
+    <>
       <Toolbar sx={{ px: 2, gap: 1.5 }}>
         <SportsEsports sx={{ color: 'primary.main' }} />
         <Typography variant="h6" sx={{ fontWeight: 700, letterSpacing: '0.1em' }}>
           ADEKS
         </Typography>
+        {variant === 'temporary' && (
+          <IconButton onClick={onMobileClose} sx={{ ml: 'auto' }}>
+            <Close />
+          </IconButton>
+        )}
       </Toolbar>
       <Divider />
       <Box sx={{ flex: 1, overflowY: 'auto', px: 1, py: 1 }}>
@@ -81,6 +138,7 @@ export default function Sidebar() {
                 component={Link}
                 href={l.href}
                 selected={pathname === l.href || pathname.startsWith(l.href + '/')}
+                onClick={variant === 'temporary' ? onMobileClose : undefined}
               >
                 <ListItemIcon sx={{ minWidth: 36 }}>{l.icon}</ListItemIcon>
                 <ListItemText primary={l.label} />
@@ -104,6 +162,7 @@ export default function Sidebar() {
                     component={Link}
                     href={l.href}
                     selected={pathname.startsWith(l.href)}
+                    onClick={variant === 'temporary' ? onMobileClose : undefined}
                   >
                     <ListItemIcon sx={{ minWidth: 36 }}>{l.icon}</ListItemIcon>
                     <ListItemText primary={l.label} />
@@ -124,11 +183,70 @@ export default function Sidebar() {
           <Typography variant="caption" sx={{ color: 'primary.main', textTransform: 'uppercase', fontWeight: 700 }}>
             {role === 'admin' ? 'Yönetici' : 'Müşteri'}
           </Typography>
-          <IconButton size="small" onClick={handleLogout} title="Çıkış">
-            <Logout fontSize="small" />
-          </IconButton>
+          <Box sx={{ display: 'flex', gap: 0.5 }}>
+            <IconButton size="small" onClick={() => setProfileOpen(true)} title="Profil">
+              <Person fontSize="small" />
+            </IconButton>
+            <IconButton size="small" onClick={handleLogout} title="Çıkış">
+              <Logout fontSize="small" />
+            </IconButton>
+          </Box>
         </Box>
       </Box>
-    </Drawer>
+    </>
+  );
+
+  return (
+    <>
+      <Drawer
+        variant={variant}
+        open={variant === 'temporary' ? mobileOpen : undefined}
+        onClose={variant === 'temporary' ? onMobileClose : undefined}
+        ModalProps={{ keepMounted: true }}
+        sx={{
+          width: DRAWER_WIDTH,
+          flexShrink: 0,
+          '& .MuiDrawer-paper': { width: DRAWER_WIDTH, boxSizing: 'border-box', borderRight: 1, borderColor: 'divider' },
+        }}
+      >
+        {drawerContent}
+      </Drawer>
+
+      <Dialog open={profileOpen} onClose={() => setProfileOpen(false)} maxWidth="xs" fullWidth>
+        <DialogTitle>Profil</DialogTitle>
+        <DialogContent>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
+            {profileError && (
+              <Typography variant="body2" color="error">
+                {profileError}
+              </Typography>
+            )}
+            <TextField
+              label="Ad Soyad"
+              value={fullName}
+              onChange={(e) => setFullName(e.target.value)}
+              fullWidth
+              size="small"
+            />
+            <TextField
+              label="ADEKS Üye No"
+              value={adeksMemberNo}
+              onChange={(e) => setAdeksMemberNo(e.target.value)}
+              fullWidth
+              size="small"
+              placeholder="Opsiyonel"
+            />
+          </Box>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button onClick={() => setProfileOpen(false)} disabled={saving}>
+            İptal
+          </Button>
+          <Button variant="contained" onClick={handleSaveProfile} disabled={saving}>
+            {saving ? 'Kaydediliyor...' : 'Kaydet'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+    </>
   );
 }

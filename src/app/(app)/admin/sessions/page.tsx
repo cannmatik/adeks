@@ -16,12 +16,16 @@ import {
   Stack,
   TextField,
   Typography,
+  List,
+  ListItem,
+  ListItemText,
+  Paper,
 } from '@mui/material';
-import { Refresh } from '@mui/icons-material';
+import { Refresh, ViewSidebar, Event, AccessTime } from '@mui/icons-material';
 import { createClient } from '@/lib/supabase/client';
 import RoomLayout from '@/components/tables/RoomLayout';
 import { CafeTable } from '@/components/tables/TableCard';
-import { CATEGORY_META } from '@/lib/categories';
+import { useCategories } from '@/components/CategoryProvider';
 
 interface ActiveSession {
   id: string;
@@ -42,20 +46,33 @@ interface ProfileLite {
 }
 
 function elapsed(start: string) {
-  const ms = Date.now() - new Date(start).getTime();
-  const mins = Math.floor(ms / 60000);
-  const h = Math.floor(mins / 60);
-  const m = mins % 60;
-  return h > 0 ? `${h}s ${m}dk` : `${m}dk`;
+  const ms = Math.max(0, Date.now() - new Date(start).getTime());
+  const totalSecs = Math.floor(ms / 1000);
+  const h = Math.floor(totalSecs / 3600);
+  const m = Math.floor((totalSecs % 3600) / 60);
+  const s = totalSecs % 60;
+  return `${h > 0 ? `${h} sa ` : ''}${m} dk ${s} sn`;
 }
 
 export default function AdminSessionsPage() {
+  const { categoryMeta } = useCategories();
   const supabase = createClient();
   const [tables, setTables] = useState<CafeTable[]>([]);
   const [sessions, setSessions] = useState<ActiveSession[]>([]);
   const [members, setMembers] = useState<ProfileLite[]>([]);
+  const [reservations, setReservations] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [timeTicker, setTimeTicker] = useState(0);
+
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setTimeTicker((prev) => prev + 1);
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
 
   const [openDialog, setOpenDialog] = useState(false);
   const [selectedTable, setSelectedTable] = useState<CafeTable | null>(null);
@@ -64,21 +81,40 @@ export default function AdminSessionsPage() {
   const [anonLabel, setAnonLabel] = useState('Misafir');
   const [saving, setSaving] = useState(false);
 
+  const [selectedReservation, setSelectedReservation] = useState<any | null>(null);
+  const [resDialogLoading, setResDialogLoading] = useState(false);
+  const [resDialogError, setResDialogError] = useState('');
+
   const load = async () => {
     setLoading(true);
     setError('');
-    const [tRes, sRes, mRes] = await Promise.all([
+    const [tRes, sRes, mRes, rRes] = await Promise.all([
       fetch('/api/tables'),
       fetch('/api/sessions?active=1'),
       supabase.from('profiles').select('id, full_name, email').eq('role', 'customer'),
+      fetch('/api/reservations?scope=all')
     ]);
     const tData = await tRes.json();
     const sData = await sRes.json();
+    const rData = rRes.ok ? await rRes.json() : { reservations: [] };
+    
     if (!tRes.ok) setError(tData.error);
     else setTables(tData.tables);
     if (!sRes.ok) setError(sData.error);
     else setSessions(sData.sessions);
     if (mRes.data) setMembers(mRes.data as ProfileLite[]);
+
+    if (rRes.ok) {
+      const now = new Date();
+      const upcoming = (rData.reservations || []).filter((r: any) => {
+        if (r.status !== 'HOLD' && r.status !== 'CONFIRMED') return false;
+        const endTime = new Date(r.end_time);
+        return endTime >= now;
+      });
+      upcoming.sort((a: any, b: any) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime());
+      setReservations(upcoming);
+    }
+    
     setLoading(false);
   };
 
@@ -89,6 +125,7 @@ export default function AdminSessionsPage() {
       .channel('admin-sessions-tables')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'table_sessions' }, () => load())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'tables' }, () => load())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'reservations' }, () => load())
       .subscribe();
     return () => { supabase.removeChannel(ch); };
   }, []);
@@ -103,12 +140,32 @@ export default function AdminSessionsPage() {
   const layoutTables = useMemo(() => {
     return tables.map((t) => {
       const s = sessionsByTable.get(t.id);
-      const rate = Number(s?.hourly_rate_snapshot ?? CATEGORY_META[t.category].defaultRate);
+      const rate = Number(s?.hourly_rate_snapshot ?? (categoryMeta[t.category]?.defaultRate ?? 0));
       const ms = s ? Date.now() - new Date(s.started_at).getTime() : 0;
       const estimated = s ? Math.round((ms / 3_600_000) * rate) : 0;
+      
+      // Sadece şu an devam eden veya 1 saat içinde başlayacak rezervasyonları haritada göster
+      const nowMs = Date.now();
+      const tReservations = reservations.filter((r) => {
+        if (!r.tables?.some((rt: any) => rt.table?.id === t.id)) return false;
+        const startMs = new Date(r.start_time).getTime();
+        const endMs = new Date(r.end_time).getTime();
+        return nowMs <= endMs && startMs - nowMs <= 60 * 60 * 1000;
+      });
+      
+      let booking_status: string = 'AVAILABLE';
+      if (s) {
+        booking_status = 'IN_USE';
+      } else if (tReservations.length > 0) {
+        // En yakındaki rezervasyonu al
+        booking_status = tReservations[0].status;
+      } else if (t.status === 'MAINTENANCE') {
+        booking_status = 'MAINTENANCE';
+      }
+
       return {
         ...t,
-        booking_status: s ? 'IN_USE' : (t.status === 'MAINTENANCE' ? 'MAINTENANCE' : 'AVAILABLE'),
+        booking_status,
         session: s ? {
           kind: s.kind,
           user_name: s.kind === 'MEMBER' ? (s.user?.full_name || s.user?.email) : (s.anonymous_label || 'Misafir'),
@@ -117,7 +174,7 @@ export default function AdminSessionsPage() {
         } : null,
       } as CafeTable;
     });
-  }, [tables, sessionsByTable]);
+  }, [tables, sessionsByTable, timeTicker, reservations, categoryMeta]);
 
   const handleTableClick = (t: CafeTable) => {
     const s = sessionsByTable.get(t.id);
@@ -175,30 +232,227 @@ export default function AdminSessionsPage() {
     else setError((await res.json()).error);
   };
 
+  const handleReservationAction = async (id: string, status: 'CONFIRMED' | 'CANCELLED') => {
+    setResDialogLoading(true);
+    setResDialogError('');
+    try {
+      const res = await fetch(`/api/reservations/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'İşlem başarısız');
+      setSelectedReservation(null);
+      load();
+    } catch (err: any) {
+      setResDialogError(err.message);
+    } finally {
+      setResDialogLoading(false);
+    }
+  };
+
+  const handleOpenAllTables = async (reservation: any) => {
+    if (!reservation?.tables || reservation.tables.length === 0) return;
+    setResDialogLoading(true);
+    setResDialogError('');
+    try {
+      // 1. Her bir masa için session başlat
+      const promises = reservation.tables.map((rt: any) => 
+        fetch('/api/sessions', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            table_id: rt.table.id,
+            kind: 'MEMBER',
+            user_id: reservation.user_id,
+            reservation_id: reservation.id,
+          }),
+        })
+      );
+      const results = await Promise.all(promises);
+      for (const res of results) {
+        if (!res.ok) {
+          const data = await res.json();
+          throw new Error(data.error || 'Oturum başlatılırken hata oluştu');
+        }
+      }
+
+      // 2. Rezervasyon durumunu COMPLETED yap (aynı zamanda telefonu silecek)
+      const patchRes = await fetch(`/api/reservations/${reservation.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'COMPLETED' }),
+      });
+      if (!patchRes.ok) {
+         const data = await patchRes.json();
+         throw new Error(data.error || 'Rezervasyon durumu güncellenemedi');
+      }
+
+      setSelectedReservation(null);
+      load();
+    } catch (err: any) {
+      setResDialogError(err.message);
+    } finally {
+      setResDialogLoading(false);
+    }
+  };
+
   return (
-    <Box>
-      <Stack direction="row" spacing={2} sx={{ justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+    <Box sx={{ height: { md: 'calc(100vh - 120px)' }, display: 'flex', flexDirection: 'column' }}>
+      <Stack direction="row" spacing={2} sx={{ justifyContent: 'space-between', alignItems: 'center', mb: 2, flexShrink: 0 }}>
         <Box>
-          <Typography variant="h4" sx={{ mb: 0.5 }}>Anlık Masa Durumu</Typography>
+          <Typography variant="h4" sx={{ mb: 0.5, fontSize: { xs: '1.5rem', md: '2.125rem' } }}>Anlık Masa Durumu</Typography>
           <Typography variant="body2" sx={{ color: 'text.secondary' }}>
             Masa üzerine tıklayarak oturum başlat veya bitir.
           </Typography>
         </Box>
-        <IconButton onClick={load} title="Yenile">
-          <Refresh />
-        </IconButton>
+        <Stack direction="row" spacing={1}>
+          <IconButton onClick={load} title="Yenile">
+            <Refresh />
+          </IconButton>
+          <IconButton onClick={() => setSidebarOpen(!sidebarOpen)} title="Paneli Aç/Kapat" color={sidebarOpen ? 'primary' : 'default'}>
+            <ViewSidebar />
+          </IconButton>
+        </Stack>
       </Stack>
 
-      {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>{error}</Alert>}
+      {error && <Alert severity="error" sx={{ mb: 2, flexShrink: 0 }} onClose={() => setError('')}>{error}</Alert>}
 
-      {loading ? (
-        <Box sx={{ textAlign: 'center', py: 8 }}>
-          <CircularProgress />
+      <Box sx={{ display: 'flex', flexGrow: 1, gap: 3, minHeight: 0, flexDirection: { xs: 'column', md: 'row' } }}>
+        {/* Main Area: RoomLayout */}
+        <Box sx={{ flexGrow: 1, overflow: 'auto', pr: { md: 1 } }}>
+          {loading ? (
+            <Box sx={{ textAlign: 'center', py: 8 }}>
+              <CircularProgress />
+            </Box>
+          ) : (
+            <RoomLayout tables={layoutTables} onClickTable={handleTableClick} allowOccupiedClick={true} />
+          )}
         </Box>
-      ) : (
-        <RoomLayout tables={layoutTables} onClickTable={handleTableClick} />
-      )}
 
+        {/* Sidebar Panel */}
+        {sidebarOpen && (
+          <Paper
+            elevation={0}
+            sx={{
+              width: { xs: '100%', md: 340 },
+              flexShrink: 0,
+              display: 'flex',
+              flexDirection: 'column',
+              borderRadius: 3,
+              border: '1.5px solid',
+              borderColor: 'divider',
+              overflow: 'hidden',
+              bgcolor: 'background.default'
+            }}
+          >
+            {/* Açık Masalar */}
+            <Box sx={{ p: 2, bgcolor: 'background.paper', borderBottom: '1px solid', borderColor: 'divider', display: 'flex', flexDirection: 'column', maxHeight: { xs: 400, md: '50%' } }}>
+              <Stack direction="row" sx={{ alignItems: 'center', gap: 1, mb: 1, flexShrink: 0 }}>
+                <AccessTime fontSize="small" color="primary" />
+                <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>Açık Masalar</Typography>
+                <Chip size="small" label={sessions.length} color="primary" variant="outlined" sx={{ ml: 'auto', fontWeight: 700 }} />
+              </Stack>
+              <List sx={{ p: 0, overflow: 'auto', flexGrow: 1 }}>
+                {sessions.length === 0 ? (
+                  <Typography variant="body2" color="text.secondary" sx={{ py: 2, textAlign: 'center' }}>Şu an açık masa yok.</Typography>
+                ) : (
+                  sessions.map((s) => {
+                    const t = tables.find((x) => x.id === s.table_id);
+                    const name = s.kind === 'MEMBER' ? (s.user?.full_name || s.user?.email) : (s.anonymous_label || 'Misafir');
+                    const rate = Number(s?.hourly_rate_snapshot ?? (t ? categoryMeta[t.category]?.defaultRate : 0));
+                    const ms = Date.now() - new Date(s.started_at).getTime();
+                    const estimated = Math.round((ms / 3_600_000) * rate);
+                    return (
+                      <ListItem key={s.id} sx={{ px: 0, py: 1.5, borderBottom: '1px dashed', borderColor: 'divider', '&:last-child': { borderBottom: 'none' } }}>
+                        <ListItemText
+                          disableTypography
+                          primary={
+                            <Typography variant="body2" sx={{ fontWeight: 800, color: 'text.primary' }}>
+                              {`Masa #${t?.number ?? '?'}`}
+                            </Typography>
+                          }
+                          secondary={
+                            <Stack spacing={0.5} sx={{ mt: 0.5 }}>
+                              <Typography variant="caption" sx={{ display: 'flex', alignItems: 'center', gap: 0.5, color: 'text.secondary' }}>
+                                <Box component="span" sx={{ display: 'inline-block', width: 6, height: 6, borderRadius: '50%', bgcolor: s.kind === 'MEMBER' ? 'success.main' : 'warning.main' }} />
+                                {s.kind === 'MEMBER' ? 'Üye' : 'Anonim'} — {name}
+                              </Typography>
+                              <Typography variant="caption" sx={{ color: 'text.primary', fontWeight: 600 }}>
+                                ⏱ {elapsed(s.started_at)} · 💰 {estimated} ₺
+                              </Typography>
+                            </Stack>
+                          }
+                        />
+                        <Button size="small" variant="outlined" color="error" onClick={() => t && handleTableClick(t)} sx={{ ml: 1, minWidth: 'auto', px: 1.5, fontWeight: 700, borderRadius: 2 }}>
+                          Kapat
+                        </Button>
+                      </ListItem>
+                    );
+                  })
+                )}
+              </List>
+            </Box>
+            
+            {/* Yaklaşan Randevular */}
+            <Box sx={{ p: 2, bgcolor: 'background.paper', flexGrow: 1, overflow: 'auto', display: 'flex', flexDirection: 'column' }}>
+              <Stack direction="row" sx={{ alignItems: 'center', gap: 1, mb: 1, flexShrink: 0 }}>
+                <Event fontSize="small" color="secondary" />
+                <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>Yaklaşan Randevular</Typography>
+                <Chip size="small" label={reservations.length} color="secondary" variant="outlined" sx={{ ml: 'auto', fontWeight: 700 }} />
+              </Stack>
+              <List sx={{ p: 0, flexGrow: 1, overflow: 'auto' }}>
+                {reservations.length === 0 ? (
+                  <Typography variant="body2" color="text.secondary" sx={{ py: 2, textAlign: 'center' }}>Yaklaşan randevu yok.</Typography>
+                ) : (
+                  reservations.map((r) => {
+                    const startTime = new Date(r.start_time);
+                    const endTime = new Date(r.end_time);
+                    const statusColor = r.status === 'HOLD' ? 'warning.main' : 'success.main';
+                    return (
+                      <ListItem 
+                        key={r.id} 
+                        sx={{ px: 0, py: 1.5, borderBottom: '1px dashed', borderColor: 'divider', '&:last-child': { borderBottom: 'none' } }}
+                      >
+                        <ListItemText
+                          disableTypography
+                          sx={{ cursor: 'pointer' }}
+                          onClick={() => setSelectedReservation(r)}
+                          primary={
+                            <Typography variant="body2" sx={{ fontWeight: 800 }}>
+                              {r.owner?.full_name || r.owner?.email || 'Bilinmiyor'}
+                            </Typography>
+                          }
+                          secondary={
+                            <Stack spacing={1} sx={{ mt: 1 }}>
+                              <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
+                                {r.tables?.map((rt: any) => (
+                                  <Chip key={rt.table?.id} label={`#${rt.table?.number}`} size="small" sx={{ height: 20, fontSize: 10, fontWeight: 700, borderRadius: 1 }} />
+                                ))}
+                              </Box>
+                              <Stack direction="row" sx={{ justifyContent: 'space-between', alignItems: 'center' }}>
+                                <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 500 }}>
+                                  {startTime.toLocaleDateString('tr-TR', { day: 'numeric', month: 'short' })} {startTime.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })} - {endTime.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })}
+                                </Typography>
+                                <Typography variant="caption" sx={{ color: statusColor, fontWeight: 700 }}>
+                                  {r.status === 'HOLD' ? 'Beklemede' : 'Onaylı'}
+                                </Typography>
+                              </Stack>
+                            </Stack>
+                          }
+                        />
+                      </ListItem>
+                    );
+                  })
+                )}
+              </List>
+            </Box>
+          </Paper>
+        )}
+      </Box>
+
+      {/* Dialogs */}
       <Dialog open={openDialog} onClose={() => !saving && setOpenDialog(false)} maxWidth="xs" fullWidth>
         <DialogTitle>Masa #{selectedTable?.number} — Oturum Başlat</DialogTitle>
         <DialogContent>
@@ -243,6 +497,69 @@ export default function AdminSessionsPage() {
           <Button variant="contained" onClick={startSession} disabled={saving || (kind === 'MEMBER' && !memberId)}>
             {saving ? 'Açılıyor...' : 'Oturumu Başlat'}
           </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={!!selectedReservation} onClose={() => !resDialogLoading && setSelectedReservation(null)} maxWidth="sm" fullWidth>
+        <DialogTitle>Rezervasyon Detayı</DialogTitle>
+        <DialogContent>
+          {selectedReservation && (
+            <Stack spacing={2} sx={{ mt: 1 }}>
+              {resDialogError && <Alert severity="error">{resDialogError}</Alert>}
+              <Typography variant="body1">
+                <strong>Kullanıcı:</strong> {selectedReservation.owner?.full_name || selectedReservation.owner?.email || 'Bilinmiyor'}
+              </Typography>
+              <Typography variant="body2">
+                <strong>Tarih:</strong> {new Date(selectedReservation.start_time).toLocaleString('tr-TR')} - {new Date(selectedReservation.end_time).toLocaleTimeString('tr-TR')}
+              </Typography>
+              <Typography variant="body2">
+                <strong>Durum:</strong> {selectedReservation.status === 'HOLD' ? 'Beklemede' : 'Onaylı'}
+              </Typography>
+              {selectedReservation.contact_phone && (
+                <Typography variant="body2">
+                  <strong>İletişim:</strong> {selectedReservation.contact_phone}
+                </Typography>
+              )}
+              {selectedReservation.notes && (
+                <Typography variant="body2">
+                  <strong>Notlar:</strong> {selectedReservation.notes}
+                </Typography>
+              )}
+              <Box>
+                <Typography variant="body2" sx={{ mb: 1 }}><strong>Seçili Masalar:</strong></Typography>
+                <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', gap: 1 }}>
+                  {selectedReservation.tables?.map((rt: any) => (
+                    <Chip key={rt.table?.id} label={`#${rt.table?.number}`} size="small" />
+                  ))}
+                </Stack>
+              </Box>
+            </Stack>
+          )}
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2, justifyContent: 'space-between' }}>
+          {selectedReservation?.status === 'HOLD' ? (
+             <Box sx={{ display: 'flex', gap: 1, width: '100%', justifyContent: 'flex-end' }}>
+               <Button onClick={() => setSelectedReservation(null)} disabled={resDialogLoading}>Kapat</Button>
+               <Button variant="outlined" color="error" onClick={() => handleReservationAction(selectedReservation.id, 'CANCELLED')} disabled={resDialogLoading}>
+                 Reddet
+               </Button>
+               <Button variant="contained" color="success" onClick={() => handleReservationAction(selectedReservation.id, 'CONFIRMED')} disabled={resDialogLoading}>
+                 {resDialogLoading ? 'İşleniyor...' : 'Onayla'}
+               </Button>
+             </Box>
+          ) : (
+             <Box sx={{ display: 'flex', gap: 1, width: '100%', justifyContent: 'space-between' }}>
+               <Button variant="outlined" color="error" onClick={() => handleReservationAction(selectedReservation.id, 'CANCELLED')} disabled={resDialogLoading}>
+                 İptal Et
+               </Button>
+               <Box sx={{ display: 'flex', gap: 1 }}>
+                 <Button onClick={() => setSelectedReservation(null)} disabled={resDialogLoading}>Kapat</Button>
+                 <Button variant="contained" color="primary" onClick={() => handleOpenAllTables(selectedReservation)} disabled={resDialogLoading}>
+                   {resDialogLoading ? 'Açılıyor...' : 'Tüm Masaları Aç'}
+                 </Button>
+               </Box>
+             </Box>
+          )}
         </DialogActions>
       </Dialog>
     </Box>

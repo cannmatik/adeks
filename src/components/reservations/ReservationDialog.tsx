@@ -24,7 +24,8 @@ import {
 import { Add, Remove, Event, Group, Category, EventSeat, Close } from '@mui/icons-material';
 import { CafeTable } from '@/components/tables/TableCard';
 import RoomLayout from '@/components/tables/RoomLayout';
-import { CATEGORY_META, TableCategory } from '@/lib/categories';
+import { TableCategory } from '@/lib/categories';
+import { useCategories } from '@/components/CategoryProvider';
 
 interface Props {
   open: boolean;
@@ -49,9 +50,10 @@ function defaultEnd() {
   return d.toISOString().slice(0, 16);
 }
 
-const categories: TableCategory[] = ['SILVER', 'GOLD', 'PLATINUM', 'PLATINUM_PLUS', 'ELITE', 'STREAM_RENDER'];
+
 
 export default function ReservationDialog({ open, initialTable, initialTableIds, onClose, onSubmitted }: Props) {
+  const { categories: dbCategories, categoryMeta } = useCategories();
   const [step, setStep] = useState(0);
 
   // Step 1
@@ -137,8 +139,8 @@ export default function ReservationDialog({ open, initialTable, initialTableIds,
   }, [open, step, start, end, category]);
 
   const totalRate = useMemo(
-    () => selectedTables.reduce((sum, t) => sum + CATEGORY_META[t.category].defaultRate, 0),
-    [selectedTables],
+    () => selectedTables.reduce((sum, t) => sum + (categoryMeta[t.category]?.defaultRate ?? 0), 0),
+    [selectedTables, categoryMeta],
   );
 
   const canNext = () => {
@@ -338,22 +340,22 @@ export default function ReservationDialog({ open, initialTable, initialTableIds,
               sx={{ flexWrap: 'wrap', gap: 1, '& .MuiToggleButton-root': { borderRadius: '8px !important', border: '1px solid var(--mui-palette-divider) !important' } }}
             >
               <ToggleButton value="ALL">Tümü</ToggleButton>
-              {categories.map((c) => (
-                <ToggleButton key={c} value={c}>
+              {dbCategories.map((c) => (
+                <ToggleButton key={c.name} value={c.name}>
                   <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
-                    <Box sx={{ width: 12, height: 12, borderRadius: '50%', bgcolor: CATEGORY_META[c].color }} />
-                    <span>{CATEGORY_META[c].label}</span>
+                    <Box sx={{ width: 12, height: 12, borderRadius: '50%', bgcolor: categoryMeta[c.name]?.color ?? '#C0C0C0' }} />
+                    <span>{categoryMeta[c.name]?.label ?? c.label}</span>
                     <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                      {CATEGORY_META[c].defaultRate}₺
+                      {categoryMeta[c.name]?.defaultRate ?? Number(c.hourly_rate)}₺
                     </Typography>
                   </Stack>
                 </ToggleButton>
               ))}
             </ToggleButtonGroup>
             {category !== 'ALL' && (
-              <Alert severity="info" icon={false} sx={{ bgcolor: CATEGORY_META[category].color + '15' }}>
+              <Alert severity="info" icon={false} sx={{ bgcolor: (categoryMeta[category]?.color ?? '#C0C0C0') + '15' }}>
                 <Typography variant="body2">
-                  <b>{CATEGORY_META[category].label}:</b> {CATEGORY_META[category].description}
+                  <b>{categoryMeta[category]?.label ?? category}:</b> {categoryMeta[category]?.description ?? ''}
                 </Typography>
               </Alert>
             )}

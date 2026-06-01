@@ -1,32 +1,36 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
-import {
-  Box,
-  IconButton,
-  Paper,
-  Stack,
-  Tooltip,
-  Typography,
-  useTheme,
-  useMediaQuery,
-} from '@mui/material';
-import { Delete, Edit, Add } from '@mui/icons-material';
+import React, { useMemo, useState } from 'react';
+import { Box, Stack, Typography, useTheme, useMediaQuery, Paper, AppBar, Toolbar, IconButton, ButtonBase, Button } from '@mui/material';
+import { ArrowBack, ArrowForward, Add } from '@mui/icons-material';
+import { useColorScheme } from '@mui/material/styles';
 import { CafeTable, RoomLite } from './TableCard';
-import { CATEGORY_META } from '@/lib/categories';
+import EditableRoomCard from './EditableRoomCard';
+import { useCategories } from '@/components/CategoryProvider';
 
 interface Props {
+  rooms: RoomLite[];
   tables: CafeTable[];
   onTableMove: (id: string, roomId: string, x: number, y: number) => void;
   onTableDelete: (id: string) => void;
   onTableEdit: (table: CafeTable) => void;
   onTableAdd: (roomId: string, x: number, y: number) => void;
+  onRoomEdit?: (room: RoomLite) => void;
+  onRoomDelete?: (roomId: string) => void;
+  onRoomResize?: (roomId: string, colSpan: number, rowSpan: number) => void;
+  onRoomMove?: (roomId: string, floorCol: number, floorRow: number) => void;
+  onRoomQuickAdd?: (floor: string) => void;
+  placingRoom?: { floor: string; colSpan: number; rowSpan: number } | null;
+  onRoomPlace?: (floor: string, col: number, row: number) => void;
 }
 
 type Group = { room: RoomLite; tables: CafeTable[] };
 
-function groupByRoom(tables: CafeTable[]): Group[] {
+function groupByRoom(rooms: RoomLite[], tables: CafeTable[]): Group[] {
   const map = new Map<string, Group>();
+  for (const r of rooms) {
+    map.set(r.id, { room: r, tables: [] });
+  }
   for (const t of tables) {
     if (!t.room) continue;
     let g = map.get(t.room.id);
@@ -41,22 +45,93 @@ function groupByRoom(tables: CafeTable[]): Group[] {
   );
 }
 
-const TILE = 44;
-const GAP = 8;
-const CELL = TILE + GAP;
+function roomsOverlap(
+  a: { floor_col: number; floor_row: number; col_span: number; row_span: number },
+  b: { floor_col: number; floor_row: number; col_span: number; row_span: number },
+) {
+  return (
+    a.floor_col < b.floor_col + b.col_span &&
+    a.floor_col + a.col_span > b.floor_col &&
+    a.floor_row < b.floor_row + b.row_span &&
+    a.floor_row + a.row_span > b.floor_row
+  );
+}
 
 export default function EditableRoomLayout({
+  rooms,
   tables,
   onTableMove,
   onTableDelete,
   onTableEdit,
   onTableAdd,
+  onRoomEdit,
+  onRoomDelete,
+  onRoomResize,
+  onRoomMove,
+  onRoomQuickAdd,
+  placingRoom,
+  onRoomPlace,
 }: Props) {
+  const { categoryMeta } = useCategories();
   const theme = useTheme();
-  const isDark = theme.palette.mode === 'dark';
+  const { mode } = useColorScheme();
+  const isDark = mode === 'dark' || theme.palette.mode === 'dark';
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
 
-  const groups = useMemo(() => groupByRoom(tables), [tables]);
+  const groups = useMemo(() => groupByRoom(rooms, tables), [rooms, tables]);
+
+  const handleRoomMove = (roomId: string, floorCol: number, floorRow: number) => {
+    if (!onRoomMove) return;
+    const moving = rooms.find((r) => r.id === roomId);
+    if (!moving) return;
+
+    const candidate = {
+      floor_col: floorCol,
+      floor_row: floorRow,
+      col_span: moving.col_span ?? 1,
+      row_span: moving.row_span ?? 1,
+    };
+
+    for (const other of rooms) {
+      if (other.id === roomId) continue;
+      if (other.floor !== moving.floor) continue;
+      if (
+        roomsOverlap(candidate, {
+          floor_col: other.floor_col ?? 0,
+          floor_row: other.floor_row ?? 0,
+          col_span: other.col_span ?? 1,
+          row_span: other.row_span ?? 1,
+        })
+      ) {
+        return; // çakışma var, taşıma
+      }
+    }
+    onRoomMove(roomId, floorCol, floorRow);
+  };
+
+  const handleRoomPlace = (floor: string, col: number, row: number) => {
+    if (!onRoomPlace || !placingRoom) return;
+    const candidate = {
+      floor_col: col,
+      floor_row: row,
+      col_span: placingRoom.colSpan,
+      row_span: placingRoom.rowSpan,
+    };
+    for (const other of rooms) {
+      if (other.floor !== floor) continue;
+      if (
+        roomsOverlap(candidate, {
+          floor_col: other.floor_col ?? 0,
+          floor_row: other.floor_row ?? 0,
+          col_span: other.col_span ?? 1,
+          row_span: other.row_span ?? 1,
+        })
+      ) {
+        return; // çakışma var, yerleştirme
+      }
+    }
+    onRoomPlace(floor, col, row);
+  };
 
   const byFloor = useMemo(() => {
     const map = new Map<string, Group[]>();
@@ -68,434 +143,237 @@ export default function EditableRoomLayout({
     return Array.from(map.entries()).sort(([a], [b]) => a.localeCompare(b));
   }, [groups]);
 
-  // Grid hover highlight (her oda için ayrı değil, global)
-  const [hoveredCell, setHoveredCell] = useState<{
-    roomId: string;
-    x: number;
-    y: number;
-  } | null>(null);
+  const [selectedMobileRoomId, setSelectedMobileRoomId] = useState<string | null>(null);
+  const [hoverPos, setHoverPos] = useState<{ x: number; y: number } | null>(null);
+
+  React.useEffect(() => {
+    if (!placingRoom) {
+      setHoverPos(null);
+    }
+  }, [placingRoom]);
 
   if (groups.length === 0) return null;
 
-  const sectionContent = (fgroups: Group[]) => (
-    <Box
-      sx={{
-        display: 'flex',
-        flexWrap: isMobile ? 'nowrap' : 'wrap',
-        gap: 2,
-        overflowX: isMobile ? 'auto' : undefined,
-        pb: isMobile ? 1 : undefined,
-        alignItems: 'flex-start',
-      }}
-    >
-      {fgroups.map((g) => {
-        const catMeta = g.room.category ? CATEGORY_META[g.room.category] : null;
-        const accent = catMeta?.color ?? g.room.color ?? '#7E7E85';
-        const short = catMeta?.short ?? g.room.name?.slice(0, 2).toUpperCase() ?? '??';
-        const sectionLabel = catMeta
-          ? `${short}${g.room.display_order + 1}`
-          : g.room.name ?? 'Oda';
+  // Mobile Single Room View
+  if (isMobile && selectedMobileRoomId) {
+    const group = groups.find(g => g.room.id === selectedMobileRoomId);
+    if (!group) {
+      setSelectedMobileRoomId(null);
+      return null;
+    }
+    
+    return (
+      <Box sx={{ position: 'fixed', inset: 0, zIndex: 1200, bgcolor: 'background.default', display: 'flex', flexDirection: 'column' }}>
+        <AppBar position="static" elevation={0} sx={{ bgcolor: 'background.paper', borderBottom: 1, borderColor: 'divider' }}>
+          <Toolbar>
+            <IconButton edge="start" onClick={() => setSelectedMobileRoomId(null)} sx={{ mr: 2 }}>
+              <ArrowBack />
+            </IconButton>
+            <Typography variant="h6" component="div" sx={{ flexGrow: 1, fontWeight: 700, color: 'text.primary' }}>
+              {group.room.name || 'Oda'}
+            </Typography>
+          </Toolbar>
+        </AppBar>
+        <Box sx={{ flexGrow: 1, overflow: 'auto', p: 2 }}>
+          <Box sx={{ width: 'fit-content', mx: 'auto' }}>
+            <EditableRoomCard
+              room={group.room}
+              tables={group.tables}
+              isDark={isDark}
+              onTableMove={onTableMove}
+              onTableDelete={onTableDelete}
+              onTableEdit={onTableEdit}
+              onTableAdd={onTableAdd}
+              onRoomEdit={onRoomEdit}
+              onRoomResize={onRoomResize}
+            />
+          </Box>
+        </Box>
+      </Box>
+    );
+  }
 
-        const innerMaxX = Math.max(0, ...g.tables.map((t) => t.position_x));
-        const innerMaxY = Math.max(0, ...g.tables.map((t) => t.position_y));
-        const gridW = Math.max(innerMaxX + 1, 8);
-        const gridH = Math.max(innerMaxY + 1, 5);
-        const innerW = gridW * CELL - GAP;
-        const innerH = gridH * CELL - GAP;
-        const padX = 20;
-        const padY = 40;
-
-        const occupied = new Set(
-          g.tables.map((t) => `${t.position_x},${t.position_y}`),
-        );
-
-        return (
-          <Paper
-            key={g.room.id}
-            elevation={0}
-            sx={{
-              position: 'relative',
-              borderRadius: 2.5,
-              bgcolor: isDark ? '#16161C' : '#F8F8FA',
-              border: `1.5px solid ${accent}35`,
-              p: 0,
-              flexShrink: 0,
-              width: innerW + padX,
-              minHeight: innerH + padY,
-              transition: 'border-color 0.2s ease, box-shadow 0.2s ease',
-              '&:hover': {
-                borderColor: `${accent}60`,
-                boxShadow: `0 4px 20px ${accent}18`,
-              },
-            }}
-          >
-            {/* Header */}
-            <Box
-              sx={{
-                position: 'absolute',
-                top: 8,
-                left: 10,
-                right: 10,
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-              }}
-            >
-              <Box
-                sx={{
-                  px: 0.75,
-                  py: 0.2,
-                  borderRadius: 0.5,
-                  fontSize: 10,
-                  fontWeight: 800,
-                  letterSpacing: '0.08em',
-                  color: accent,
-                  bgcolor: isDark ? '#0E0E12' : '#FFFFFF',
-                  textTransform: 'uppercase',
-                  whiteSpace: 'nowrap',
-                }}
-              >
-                {sectionLabel}
-              </Box>
-              <Tooltip title="Bu bölüme masa ekle">
-                <IconButton
-                  size="small"
-                  sx={{ color: accent }}
-                  onClick={() => {
-                    let found = false;
-                    for (let y = 0; y < gridH && !found; y++) {
-                      for (let x = 0; x < gridW && !found; x++) {
-                        if (!occupied.has(`${x},${y}`)) {
-                          onTableAdd(g.room.id, x, y);
-                          found = true;
-                        }
-                      }
-                    }
-                    if (!found) onTableAdd(g.room.id, gridW, 0);
-                  }}
-                >
-                  <Add fontSize="small" />
-                </IconButton>
-              </Tooltip>
-            </Box>
-
-            {/* Grid Container */}
-            <Box
-              sx={{
-                position: 'relative',
-                width: innerW,
-                height: innerH,
-                mx: 'auto',
-                mt: '28px',
-                mb: '12px',
-              }}
-              onMouseMove={(e) => {
-                const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-                const x = Math.floor((e.clientX - rect.left) / CELL);
-                const y = Math.floor((e.clientY - rect.top) / CELL);
-                if (x >= 0 && x < gridW && y >= 0 && y < gridH) {
-                  setHoveredCell({ roomId: g.room.id, x, y });
-                }
-              }}
-              onMouseLeave={() => setHoveredCell(null)}
-              onClick={(e) => {
-                if (e.target !== e.currentTarget) return;
-                const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-                const x = Math.floor((e.clientX - rect.left) / CELL);
-                const y = Math.floor((e.clientY - rect.top) / CELL);
-                onTableAdd(g.room.id, x, y);
-              }}
-            >
-              {/* Grid dots background */}
-              <Box
-                sx={{
-                  position: 'absolute',
-                  inset: 0,
-                  backgroundImage: isDark
-                    ? 'radial-gradient(circle, rgba(255,255,255,0.08) 1px, transparent 1px)'
-                    : 'radial-gradient(circle, rgba(0,0,0,0.10) 1px, transparent 1px)',
-                  backgroundSize: `${CELL}px ${CELL}px`,
-                  backgroundPosition: '0 0',
-                  pointerEvents: 'none',
-                }}
-              />
-
-              {/* Hover highlight */}
-              {hoveredCell?.roomId === g.room.id &&
-                !occupied.has(`${hoveredCell.x},${hoveredCell.y}`) && (
-                  <Box
+  // Mobile Room Selection List
+  if (isMobile) {
+    return (
+      <Stack spacing={3}>
+        {byFloor.map(([f, fgroups]) => (
+          <Box key={f}>
+            <Typography variant="h6" sx={{ mb: 1.5, fontWeight: 800, color: 'text.primary' }}>
+              {f}. Kat
+            </Typography>
+            <Stack spacing={2}>
+              {fgroups.map(g => {
+                const catMeta = g.room.category ? categoryMeta[g.room.category] : null;
+                const accent = catMeta?.color ?? g.room.color ?? '#7E7E85';
+                const count = g.tables.length;
+                return (
+                  <ButtonBase
+                    key={g.room.id}
+                    onClick={() => setSelectedMobileRoomId(g.room.id)}
                     sx={{
-                      position: 'absolute',
-                      left: hoveredCell.x * CELL,
-                      top: hoveredCell.y * CELL,
-                      width: TILE,
-                      height: TILE,
-                      borderRadius: 1.5,
-                      border: '2px dashed',
-                      borderColor: isDark ? 'rgba(255,255,255,0.25)' : 'rgba(0,0,0,0.20)',
-                      bgcolor: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)',
-                      pointerEvents: 'none',
-                      zIndex: 0,
-                      transition: 'left 0.05s, top 0.05s',
+                      width: '100%',
+                      textAlign: 'left',
+                      borderRadius: 3,
+                      display: 'block',
                     }}
-                  />
-                )}
+                  >
+                    <Paper
+                      elevation={0}
+                      sx={{
+                        p: 2.5,
+                        bgcolor: isDark ? '#16161C' : '#FFFFFF',
+                        border: `1.5px solid ${accent}40`,
+                        borderRadius: 3,
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        boxShadow: '0 4px 12px rgba(0,0,0,0.02)',
+                      }}
+                    >
+                      <Box>
+                        <Typography variant="subtitle1" sx={{ fontWeight: 800, color: accent }}>
+                          {g.room.name || 'Oda'}
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          {count} Masa
+                        </Typography>
+                      </Box>
+                      <ArrowForward sx={{ color: 'text.secondary' }} />
+                    </Paper>
+                  </ButtonBase>
+                );
+              })}
+            </Stack>
+          </Box>
+        ))}
+      </Stack>
+    );
+  }
 
-              {/* Tables */}
-              {g.tables.map((t) => (
-                <DraggableTile
-                  key={t.id}
-                  table={t}
-                  onMove={onTableMove}
-                  onDelete={onTableDelete}
-                  onEdit={onTableEdit}
-                  accent={accent}
-                  isDark={isDark}
-                />
-              ))}
-            </Box>
-          </Paper>
-        );
-      })}
-    </Box>
-  );
-
+  // Desktop View
   return (
     <Stack spacing={3}>
-      {byFloor.map(([f, fgroups]) => (
-        <Box key={f}>
-          <Typography
-            variant="h6"
-            sx={{
-              mb: 1.5,
-              fontWeight: 800,
-              letterSpacing: '-0.01em',
-              color: 'text.primary',
-            }}
-          >
-            {f}. Kat
-          </Typography>
-          <Paper
-            elevation={0}
-            sx={{
-              p: { xs: 1.5, md: 2.5 },
-              bgcolor: isDark ? '#0E0E12' : theme.palette.background.paper,
-              borderRadius: 3,
-              border: `1px solid ${isDark ? 'rgba(255,255,255,0.06)' : theme.palette.divider}`,
-              overflowX: 'auto',
-            }}
-          >
-            {sectionContent(fgroups)}
-          </Paper>
-        </Box>
-      ))}
+      {byFloor.map(([f, fgroups]) => {
+        // Calculate dynamic canvas size from room positions
+        const CELL = 52;
+        const VISUAL_OFFSET_X = 52;
+        const VISUAL_OFFSET_Y = 52;
+        const maxCol = Math.max(0, ...fgroups.map(g => (g.room.floor_col ?? 0) + (g.room.col_span ?? 1)));
+        const maxRow = Math.max(0, ...fgroups.map(g => (g.room.floor_row ?? 0) + (g.room.row_span ?? 1)));
+        // Add VISUAL_OFFSET for the top/left margin, plus extra space for floating controls (+100px)
+        const canvasW = maxCol * CELL + VISUAL_OFFSET_X + 100;
+        const canvasH = maxRow * CELL + VISUAL_OFFSET_Y + 52;
+
+        return (
+          <Box key={f}>
+            <Stack direction="row" spacing={2} sx={{ mb: 1.5, alignItems: 'center' }}>
+              <Typography
+                variant="h6"
+                sx={{
+                  fontWeight: 800,
+                  letterSpacing: '-0.01em',
+                  color: 'text.primary',
+                }}
+              >
+                {f}. Kat
+              </Typography>
+              {onRoomQuickAdd && (
+                <Button
+                  variant="outlined"
+                  size="small"
+                  startIcon={<Add />}
+                  onClick={() => onRoomQuickAdd(f)}
+                  sx={{
+                    borderRadius: 2,
+                    textTransform: 'none',
+                    py: 0.25,
+                    fontSize: 12,
+                    borderColor: 'divider',
+                    color: 'text.secondary',
+                    '&:hover': {
+                      borderColor: 'primary.main',
+                      color: 'primary.main',
+                    }
+                  }}
+                >
+                  Bölüm Ekle (2x2)
+                </Button>
+              )}
+            </Stack>
+            <Box
+              onMouseMove={(e) => {
+                if (placingRoom && placingRoom.floor === f) {
+                  const rect = e.currentTarget.getBoundingClientRect();
+                  const mouseX = e.clientX - rect.left;
+                  const mouseY = e.clientY - rect.top;
+                  const col = Math.max(0, Math.floor((mouseX - VISUAL_OFFSET_X) / CELL));
+                  const row = Math.max(0, Math.floor((mouseY - VISUAL_OFFSET_Y) / CELL));
+                  setHoverPos({ x: col, y: row });
+                }
+              }}
+              onMouseLeave={() => {
+                setHoverPos(null);
+              }}
+              onClick={(e) => {
+                if (placingRoom && placingRoom.floor === f && hoverPos) {
+                  e.stopPropagation();
+                  handleRoomPlace(f, hoverPos.x, hoverPos.y);
+                }
+              }}
+              sx={{
+                position: 'relative',
+                width: '100%',
+                minHeight: canvasH,
+                overflow: 'auto',
+                p: 0,
+                bgcolor: isDark ? 'rgba(0,0,0,0.2)' : 'rgba(0,0,0,0.02)',
+                borderRadius: 3,
+                border: `1px dashed ${isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)'}`,
+                backgroundImage: isDark
+                  ? 'radial-gradient(rgba(255, 255, 255, 0.08) 1px, transparent 0)'
+                  : 'radial-gradient(rgba(0, 0, 0, 0.08) 1px, transparent 0)',
+                backgroundSize: `${CELL}px ${CELL}px`,
+                backgroundPosition: `${VISUAL_OFFSET_X}px ${VISUAL_OFFSET_Y}px`,
+                cursor: placingRoom && placingRoom.floor === f ? 'cell' : 'default',
+              }}
+            >
+              {fgroups.map((g) => (
+                <EditableRoomCard
+                  key={g.room.id}
+                  room={g.room}
+                  tables={g.tables}
+                  isDark={isDark}
+                  onTableMove={onTableMove}
+                  onTableDelete={onTableDelete}
+                  onTableEdit={onTableEdit}
+                  onTableAdd={onTableAdd}
+                  onRoomEdit={onRoomEdit}
+                  onRoomResize={onRoomResize}
+                  onRoomMove={handleRoomMove}
+                />
+              ))}
+
+              {placingRoom && placingRoom.floor === f && hoverPos && (
+                <Box
+                  sx={{
+                    position: 'absolute',
+                    left: hoverPos.x * CELL + VISUAL_OFFSET_X,
+                    top: hoverPos.y * CELL + VISUAL_OFFSET_Y,
+                    width: placingRoom.colSpan * CELL,
+                    height: placingRoom.rowSpan * CELL,
+                    bgcolor: 'rgba(34, 197, 94, 0.15)',
+                    border: '2px dashed #22c55e',
+                    borderRadius: 3,
+                    pointerEvents: 'none',
+                    zIndex: 1000,
+                  }}
+                />
+              )}
+            </Box>
+          </Box>
+        );
+      })}
     </Stack>
-  );
-}
-
-function DraggableTile({
-  table,
-  onMove,
-  onDelete,
-  onEdit,
-  accent,
-  isDark,
-}: {
-  table: CafeTable;
-  onMove: (id: string, roomId: string, x: number, y: number) => void;
-  onDelete: (id: string) => void;
-  onEdit: (table: CafeTable) => void;
-  accent: string;
-  isDark: boolean;
-}) {
-  const [dragging, setDragging] = useState(false);
-  const [hovered, setHovered] = useState(false);
-  const [previewPos, setPreviewPos] = useState<{ x: number; y: number } | null>(null);
-  const pos = useRef({
-    x: table.position_x * CELL,
-    y: table.position_y * CELL,
-  });
-  const start = useRef({ mx: 0, my: 0, px: 0, py: 0 });
-
-  useEffect(() => {
-    pos.current = {
-      x: table.position_x * CELL,
-      y: table.position_y * CELL,
-    };
-    setPreviewPos(null);
-  }, [table.position_x, table.position_y]);
-
-  const handleMouseDown = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    e.preventDefault();
-    setDragging(true);
-    start.current = {
-      mx: e.clientX,
-      my: e.clientY,
-      px: pos.current.x,
-      py: pos.current.y,
-    };
-  };
-
-  useEffect(() => {
-    if (!dragging) return;
-
-    const handleMouseMove = (e: MouseEvent) => {
-      const dx = e.clientX - start.current.mx;
-      const dy = e.clientY - start.current.my;
-      pos.current = {
-        x: start.current.px + dx,
-        y: start.current.py + dy,
-      };
-      const snapX = Math.max(0, Math.round(pos.current.x / CELL)) * CELL;
-      const snapY = Math.max(0, Math.round(pos.current.y / CELL)) * CELL;
-      setPreviewPos({ x: snapX, y: snapY });
-    };
-
-    const handleMouseUp = (e: MouseEvent) => {
-      setDragging(false);
-      setPreviewPos(null);
-      const dx = e.clientX - start.current.mx;
-      const dy = e.clientY - start.current.my;
-      const finalX = start.current.px + dx;
-      const finalY = start.current.py + dy;
-      const newX = Math.max(0, Math.round(finalX / CELL));
-      const newY = Math.max(0, Math.round(finalY / CELL));
-      if (newX !== table.position_x || newY !== table.position_y) {
-        onMove(table.id, table.room?.id || '', newX, newY);
-      }
-    };
-
-    window.addEventListener('mousemove', handleMouseMove);
-    window.addEventListener('mouseup', handleMouseUp);
-    return () => {
-      window.removeEventListener('mousemove', handleMouseMove);
-      window.removeEventListener('mouseup', handleMouseUp);
-    };
-  }, [dragging, table.id, table.position_x, table.position_y, table.room?.id, onMove]);
-
-  const meta = CATEGORY_META[table.category] ?? {
-    label: table.category ?? 'Bilinmeyen',
-    short: (table.category ?? '?').slice(0, 2),
-    color: '#7E7E85',
-  };
-
-  const statusColors: Record<string, { bg: string; fg: string; border: string }> = {
-    AVAILABLE: { bg: isDark ? '#0E0E12' : '#FFFFFF', fg: isDark ? '#FFF' : '#111', border: meta.color },
-    OCCUPIED: { bg: isDark ? '#27272A' : '#E4E4E7', fg: isDark ? '#FFF' : '#52525B', border: '#71717A' },
-    MAINTENANCE: { bg: isDark ? '#27272A' : '#E4E4E7', fg: isDark ? '#A1A1AA' : '#52525B', border: '#71717A' },
-  };
-
-  const sc = statusColors[table.status] || statusColors.AVAILABLE;
-
-  return (
-    <Box
-      onMouseDown={handleMouseDown}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      sx={{
-        position: 'absolute',
-        left: pos.current.x,
-        top: pos.current.y,
-        width: TILE,
-        height: TILE,
-        cursor: dragging ? 'grabbing' : 'grab',
-        zIndex: dragging ? 100 : hovered ? 10 : 1,
-        userSelect: 'none',
-      }}
-    >
-      {/* Snap Preview */}
-      {dragging && previewPos && (
-        <Box
-          sx={{
-            position: 'absolute',
-            left: previewPos.x - pos.current.x,
-            top: previewPos.y - pos.current.y,
-            width: TILE,
-            height: TILE,
-            borderRadius: 1.5,
-            border: '2px dashed',
-            borderColor: isDark ? 'rgba(255,255,255,0.30)' : 'rgba(0,0,0,0.25)',
-            bgcolor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)',
-            pointerEvents: 'none',
-            zIndex: -1,
-          }}
-        />
-      )}
-
-      {/* Sil / Düzenle butonları */}
-      {(hovered || dragging) && (
-        <Box
-          sx={{
-            position: 'absolute',
-            top: -20,
-            right: -8,
-            display: 'flex',
-            gap: 0.2,
-            zIndex: 101,
-          }}
-        >
-          <IconButton
-            size="small"
-            sx={{
-              bgcolor: 'background.paper',
-              width: 20,
-              height: 20,
-              '&:hover': { bgcolor: 'action.hover' },
-            }}
-            onClick={(e) => {
-              e.stopPropagation();
-              onEdit(table);
-            }}
-          >
-            <Edit sx={{ fontSize: 12 }} />
-          </IconButton>
-          <IconButton
-            size="small"
-            color="error"
-            sx={{
-              bgcolor: 'background.paper',
-              width: 20,
-              height: 20,
-              '&:hover': { bgcolor: 'error.lighter' },
-            }}
-            onClick={(e) => {
-              e.stopPropagation();
-              if (confirm(`Masa #${table.number} silinsin mi?`)) {
-                onDelete(table.id);
-              }
-            }}
-          >
-            <Delete sx={{ fontSize: 12 }} />
-          </IconButton>
-        </Box>
-      )}
-
-      {/* Masa tile */}
-      <Tooltip arrow title={`Masa #${table.number} — ${meta.label}`}>
-        <Box
-          sx={{
-            width: TILE,
-            height: TILE,
-            bgcolor: sc.bg,
-            color: sc.fg,
-            border: `2px solid ${sc.border}`,
-            borderRadius: 1.5,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            fontSize: 13,
-            fontWeight: 700,
-            transition: 'transform 0.15s ease, box-shadow 0.15s ease',
-            boxShadow: dragging
-              ? `0 8px 24px ${sc.border}55`
-              : '0 1px 2px rgba(0,0,0,0.06)',
-            transform: dragging ? 'scale(1.08)' : undefined,
-          }}
-        >
-          {table.number}
-        </Box>
-      </Tooltip>
-    </Box>
   );
 }

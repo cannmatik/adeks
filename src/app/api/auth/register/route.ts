@@ -5,7 +5,7 @@ import { sendVerificationOTP, generateOTP } from '@/lib/email';
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const { password, fullName, phone } = body;
+    const { password, fullName, adeksMemberNo } = body;
     const email = typeof body.email === 'string' ? body.email.trim().toLowerCase() : '';
 
     if (!email || !password || !fullName) {
@@ -81,7 +81,7 @@ export async function POST(req: Request) {
           id: userId,
           full_name: fullName,
           email,
-          phone: phone || null,
+          adeks_member_no: adeksMemberNo?.trim() || null,
           role: 'customer',
           email_verified: false,
         },

@@ -15,14 +15,14 @@ interface MessageRow {
 }
 
 interface Props {
-  conversationId?: string | null;
+  reservationId: string;
   header?: React.ReactNode;
 }
 
-export default function ChatPanel({ conversationId: forcedId, header }: Props) {
+export default function ChatPanel({ reservationId, header }: Props) {
   const { user } = useAuth();
   const supabase = createClient();
-  const [conversationId, setConversationId] = useState<string | null>(forcedId ?? null);
+  const [conversationId, setConversationId] = useState<string | null>(null);
   const [messages, setMessages] = useState<MessageRow[]>([]);
   const [content, setContent] = useState('');
   const [loading, setLoading] = useState(true);
@@ -30,11 +30,10 @@ export default function ChatPanel({ conversationId: forcedId, header }: Props) {
   const [error, setError] = useState('');
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  const load = async (id?: string | null) => {
+  const load = async () => {
     setLoading(true);
     try {
-      const url = id ? `/api/messages?conversationId=${id}` : '/api/messages';
-      const res = await fetch(url);
+      const res = await fetch(`/api/messages?reservationId=${reservationId}`);
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Yüklenemedi');
       setConversationId(data.conversationId);
@@ -47,8 +46,8 @@ export default function ChatPanel({ conversationId: forcedId, header }: Props) {
   };
 
   useEffect(() => {
-    load(forcedId ?? undefined);
-  }, [forcedId]);
+    load();
+  }, [reservationId]);
 
   useEffect(() => {
     if (!conversationId) return;
@@ -86,7 +85,7 @@ export default function ChatPanel({ conversationId: forcedId, header }: Props) {
       const res = await fetch('/api/messages', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ conversationId, content }),
+        body: JSON.stringify({ reservationId, content }),
       });
       if (!res.ok) {
         const data = await res.json();
@@ -101,7 +100,7 @@ export default function ChatPanel({ conversationId: forcedId, header }: Props) {
   };
 
   return (
-    <Paper sx={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 160px)' }}>
+    <Paper sx={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 400 }}>
       {header}
       {error && <Alert severity="error" onClose={() => setError('')} sx={{ m: 2 }}>{error}</Alert>}
 

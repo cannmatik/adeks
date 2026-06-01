@@ -1,9 +1,9 @@
-export type TableCategory = 'SILVER' | 'GOLD' | 'PLATINUM' | 'PLATINUM_PLUS' | 'ELITE' | 'STREAM_RENDER' | 'GARDEN'
+export type TableCategory = string;
 export type TableStatus = 'AVAILABLE' | 'OCCUPIED' | 'MAINTENANCE'
 export type ReservationStatus = 'REQUESTED' | 'CONFIRMED' | 'CANCELLED' | 'COMPLETED' | 'HOLD'
 
 export const CATEGORY_META: Record<
-  TableCategory,
+  string,
   { label: string; short: string; color: string; defaultRate: number; description: string }
 > = {
   SILVER: {

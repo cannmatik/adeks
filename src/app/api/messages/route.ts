@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 
-// GET: kullanıcının (veya conversation_id verilmişse admin için) conversation + mesajları
+// GET: reservationId verilmişse o rezervasyonun conversation + mesajlarını döndür
 export async function GET(req: Request) {
   const supabase = await createClient();
   const {
@@ -16,49 +16,45 @@ export async function GET(req: Request) {
     .single();
 
   const { searchParams } = new URL(req.url);
-  const conversationIdParam = searchParams.get('conversationId');
+  const reservationId = searchParams.get('reservationId');
 
-  let conversationId = conversationIdParam;
+  if (!reservationId) {
+    return NextResponse.json({ error: 'reservationId zorunlu' }, { status: 400 });
+  }
 
-  if (!conversationId) {
-    // customer: kendi conversation'ı; yoksa oluştur
-    const { data: existing } = await supabase
-      .from('conversations')
-      .select('id')
-      .eq('user_id', user.id)
-      .maybeSingle();
-
-    if (existing) {
-      conversationId = existing.id;
-    } else {
-      const { data: created, error: createErr } = await supabase
-        .from('conversations')
-        .insert({ user_id: user.id })
-        .select('id')
-        .single();
-      if (createErr) return NextResponse.json({ error: createErr.message }, { status: 500 });
-      conversationId = created.id;
+  // Yetki kontrolü: admin veya rezervasyon sahibi/katılımcısı olmalı
+  if (profile?.role !== 'admin') {
+    const [ownedRes, participantRes] = await Promise.all([
+      supabase.from('reservations').select('id').eq('id', reservationId).eq('user_id', user.id).maybeSingle(),
+      supabase.from('reservation_participants').select('reservation_id').eq('reservation_id', reservationId).eq('user_id', user.id).maybeSingle(),
+    ]);
+    if (!ownedRes.data && !participantRes.data) {
+      return NextResponse.json({ error: 'Yetkisiz' }, { status: 403 });
     }
-  } else if (profile?.role !== 'admin') {
-    // customer admin değilse sadece kendi conversation'ına erişebilir
-    const { data: own } = await supabase
-      .from('conversations')
-      .select('id')
-      .eq('id', conversationId)
-      .eq('user_id', user.id)
-      .maybeSingle();
-    if (!own) return NextResponse.json({ error: 'Yetkisiz' }, { status: 403 });
+  }
+
+  // Rezervasyona ait conversation'ı bul
+  const { data: conversation, error: convError } = await supabase
+    .from('conversations')
+    .select('id')
+    .eq('reservation_id', reservationId)
+    .maybeSingle();
+
+  if (convError) return NextResponse.json({ error: convError.message }, { status: 500 });
+
+  if (!conversation) {
+    return NextResponse.json({ conversationId: null, messages: [] });
   }
 
   const { data: messages, error } = await supabase
     .from('messages')
     .select('*')
-    .eq('conversation_id', conversationId)
+    .eq('conversation_id', conversation.id)
     .order('created_at', { ascending: true });
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  return NextResponse.json({ conversationId, messages: messages ?? [] });
+  return NextResponse.json({ conversationId: conversation.id, messages: messages ?? [] });
 }
 
 // POST: mesaj gönder
@@ -69,16 +65,43 @@ export async function POST(req: Request) {
   } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: 'Auth gerekli' }, { status: 401 });
 
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('role')
+    .eq('id', user.id)
+    .single();
+
   const body = await req.json();
-  const { conversationId, content } = body;
-  if (!conversationId || !content?.trim()) {
-    return NextResponse.json({ error: 'conversationId ve content zorunlu' }, { status: 400 });
+  const { reservationId, content } = body;
+  if (!reservationId || !content?.trim()) {
+    return NextResponse.json({ error: 'reservationId ve content zorunlu' }, { status: 400 });
   }
+
+  // Yetki kontrolü
+  if (profile?.role !== 'admin') {
+    const [ownedRes, participantRes] = await Promise.all([
+      supabase.from('reservations').select('id').eq('id', reservationId).eq('user_id', user.id).maybeSingle(),
+      supabase.from('reservation_participants').select('reservation_id').eq('reservation_id', reservationId).eq('user_id', user.id).maybeSingle(),
+    ]);
+    if (!ownedRes.data && !participantRes.data) {
+      return NextResponse.json({ error: 'Yetkisiz' }, { status: 403 });
+    }
+  }
+
+  // Rezervasyona ait conversation'ı bul
+  const { data: conversation, error: convError } = await supabase
+    .from('conversations')
+    .select('id')
+    .eq('reservation_id', reservationId)
+    .maybeSingle();
+
+  if (convError) return NextResponse.json({ error: convError.message }, { status: 500 });
+  if (!conversation) return NextResponse.json({ error: 'Conversation bulunamadı' }, { status: 404 });
 
   const { data, error } = await supabase
     .from('messages')
     .insert({
-      conversation_id: conversationId,
+      conversation_id: conversation.id,
       sender_id: user.id,
       content: content.trim(),
     })
@@ -90,7 +113,7 @@ export async function POST(req: Request) {
   await supabase
     .from('conversations')
     .update({ last_message_at: new Date().toISOString() })
-    .eq('id', conversationId);
+    .eq('id', conversation.id);
 
   return NextResponse.json({ message: data });
 }

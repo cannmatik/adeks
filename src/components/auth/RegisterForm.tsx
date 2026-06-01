@@ -21,7 +21,7 @@ export default function RegisterForm({ onSwitchToLogin, onRegisterSuccess }: Reg
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [phone, setPhone] = useState('');
+  const [adeksMemberNo, setAdeksMemberNo] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -42,7 +42,7 @@ export default function RegisterForm({ onSwitchToLogin, onRegisterSuccess }: Reg
       const res = await fetch('/api/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password, fullName, phone }),
+        body: JSON.stringify({ email, password, fullName, adeksMemberNo }),
       });
 
       const data = await res.json();
@@ -88,11 +88,11 @@ export default function RegisterForm({ onSwitchToLogin, onRegisterSuccess }: Reg
           slotProps={shrinkProps}
         />
         <TextField
-          label="Telefon (opsiyonel)"
+          label="ADEKS Üye No (opsiyonel)"
           fullWidth
           size="small"
-          value={phone}
-          onChange={(e) => setPhone(e.target.value)}
+          value={adeksMemberNo}
+          onChange={(e) => setAdeksMemberNo(e.target.value)}
           slotProps={shrinkProps}
         />
         <TextField

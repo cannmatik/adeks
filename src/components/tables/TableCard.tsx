@@ -3,12 +3,12 @@
 import { Box, Button, Card, CardContent, Chip, Stack, Typography } from '@mui/material';
 import { Bolt } from '@mui/icons-material';
 import {
-  CATEGORY_META,
   STATUS_COLOR,
   STATUS_LABEL,
   TableCategory,
   TableStatus,
 } from '@/lib/categories';
+import { useCategories } from '@/components/CategoryProvider';
 import CategoryBadge from './CategoryBadge';
 
 export interface RoomLite {
@@ -32,6 +32,7 @@ export interface CafeTable {
   number: number;
   category: TableCategory;
   status: TableStatus;
+  shape: string;
   booking_status?: BookingStatus;
   hourly_rate: number | string | null;
   position_x: number;
@@ -54,7 +55,13 @@ interface Props {
 }
 
 export default function TableCard({ table, onReserve, disabled, compact }: Props) {
-  const meta = CATEGORY_META[table.category];
+  const { categoryMeta } = useCategories();
+  const meta = categoryMeta[table.category] ?? {
+    label: table.category,
+    color: '#C0C0C0',
+    defaultRate: 0,
+    description: '',
+  };
   const isAvailable = table.status === 'AVAILABLE';
   const rate = table.hourly_rate != null ? Number(table.hourly_rate) : meta.defaultRate;
 

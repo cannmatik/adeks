@@ -7,12 +7,16 @@ import {
   Button,
   Chip,
   CircularProgress,
+  Dialog,
+  DialogContent,
+  DialogTitle,
   Paper,
   Stack,
   Typography,
 } from '@mui/material';
 import { CheckCircle, Cancel, DoneAll, HourglassEmpty } from '@mui/icons-material';
 import ReservationCard, { ReservationRow } from '@/components/reservations/ReservationCard';
+import ChatPanel from '@/components/messages/ChatPanel';
 import { RESERVATION_LABEL, ReservationStatus } from '@/lib/categories';
 
 const filters: (ReservationStatus | 'ALL')[] = [
@@ -29,6 +33,9 @@ export default function AdminReservationsPage() {
   const [error, setError] = useState('');
   const [filter, setFilter] = useState<ReservationStatus | 'ALL'>('ALL');
   const [updatingId, setUpdatingId] = useState<string | null>(null);
+
+  const [msgOpen, setMsgOpen] = useState(false);
+  const [msgReservationId, setMsgReservationId] = useState<string | null>(null);
 
   const load = async () => {
     setLoading(true);
@@ -142,6 +149,10 @@ export default function AdminReservationsPage() {
               key={r.id}
               reservation={r}
               showOwner
+              onOpenMessages={(id) => {
+                setMsgReservationId(id);
+                setMsgOpen(true);
+              }}
               actions={
                 <>
                   {r.status === 'HOLD' && (
@@ -185,6 +196,20 @@ export default function AdminReservationsPage() {
           ))}
         </Stack>
       )}
+
+      {/* Mesajlaşma Dialogu */}
+      <Dialog
+        open={msgOpen}
+        onClose={() => setMsgOpen(false)}
+        maxWidth="md"
+        fullWidth
+        slotProps={{ paper: { sx: { height: '70vh' } } }}
+      >
+        <DialogTitle sx={{ pb: 1 }}>Rezervasyon Mesajları</DialogTitle>
+        <DialogContent sx={{ p: 0, display: 'flex', flexDirection: 'column', height: '100%' }}>
+          {msgReservationId && <ChatPanel reservationId={msgReservationId} />}
+        </DialogContent>
+      </Dialog>
     </Box>
   );
 }

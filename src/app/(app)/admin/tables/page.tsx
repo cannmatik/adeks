@@ -23,14 +23,13 @@ import { Add, Delete, Edit, Map } from '@mui/icons-material';
 import { CafeTable } from '@/components/tables/TableCard';
 import CategoryBadge from '@/components/tables/CategoryBadge';
 import {
-  CATEGORY_META,
   STATUS_COLOR,
   STATUS_LABEL,
   TableCategory,
   TableStatus,
 } from '@/lib/categories';
+import { useCategories } from '@/components/CategoryProvider';
 
-const categories: TableCategory[] = ['SILVER', 'GOLD', 'PLATINUM', 'PLATINUM_PLUS', 'ELITE', 'STREAM_RENDER', 'GARDEN'];
 const statuses: TableStatus[] = ['AVAILABLE', 'OCCUPIED', 'MAINTENANCE'];
 
 interface FormState {
@@ -39,6 +38,7 @@ interface FormState {
   category: TableCategory;
   status: TableStatus;
   notes: string;
+  shape: string;
 }
 
 const emptyForm: FormState = {
@@ -46,9 +46,11 @@ const emptyForm: FormState = {
   category: 'SILVER',
   status: 'AVAILABLE',
   notes: '',
+  shape: 'SQUARE',
 };
 
 export default function AdminTablesPage() {
+  const { categories: dbCategories, categoryMeta } = useCategories();
   const [tables, setTables] = useState<CafeTable[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -83,6 +85,7 @@ export default function AdminTablesPage() {
       status: t.status,
       // hourly_rate artık tables tablosunda yok, kategoriden gelir
       notes: t.notes ?? '',
+      shape: t.shape ?? 'SQUARE',
     });
     setDialogOpen(true);
   };
@@ -145,7 +148,7 @@ export default function AdminTablesPage() {
               <CardContent>
                 <Stack direction="row" spacing={2} sx={{ alignItems: 'center', justifyContent: 'space-between' }}>
                   <Stack direction="row" spacing={2} sx={{ alignItems: 'center' }}>
-                    <Typography variant="h5" sx={{ minWidth: 56, color: CATEGORY_META[t.category].color }}>
+                    <Typography variant="h5" sx={{ minWidth: 56, color: categoryMeta[t.category]?.color ?? '#C0C0C0' }}>
                       #{t.number}
                     </Typography>
                     <CategoryBadge category={t.category} />
@@ -155,8 +158,14 @@ export default function AdminTablesPage() {
                       color={STATUS_COLOR[t.status]}
                       variant="outlined"
                     />
+                    <Chip
+                      size="small"
+                      label={t.shape === 'ROUND' ? 'Yuvarlak' : 'Kare'}
+                      variant="outlined"
+                      sx={{ opacity: 0.8 }}
+                    />
                     <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-                      {CATEGORY_META[t.category].defaultRate} ₺/saat
+                      {categoryMeta[t.category]?.defaultRate ?? 0} ₺/saat
                     </Typography>
                   </Stack>
                   <Stack direction="row" spacing={1}>
@@ -192,8 +201,8 @@ export default function AdminTablesPage() {
               }}
               fullWidth
             >
-              {categories.map((c) => (
-                <MenuItem key={c} value={c}>{CATEGORY_META[c].label}</MenuItem>
+              {dbCategories.map((c) => (
+                <MenuItem key={c.name} value={c.name}>{categoryMeta[c.name]?.label ?? c.label}</MenuItem>
               ))}
             </TextField>
             <TextField
@@ -206,6 +215,16 @@ export default function AdminTablesPage() {
               {statuses.map((s) => (
                 <MenuItem key={s} value={s}>{STATUS_LABEL[s]}</MenuItem>
               ))}
+            </TextField>
+            <TextField
+              select
+              label="Şekil"
+              value={form.shape}
+              onChange={(e) => setForm({ ...form, shape: e.target.value })}
+              fullWidth
+            >
+              <MenuItem value="SQUARE">Kare</MenuItem>
+              <MenuItem value="ROUND">Yuvarlak</MenuItem>
             </TextField>
             <TextField
               label="Not (opsiyonel)"

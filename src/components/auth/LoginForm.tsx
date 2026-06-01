@@ -36,18 +36,25 @@ export default function LoginForm({ onSwitchToRegister }: LoginFormProps) {
       return;
     }
     setLoading(true);
-    const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
-    setLoading(false);
-    if (signInError) {
+
+    const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+
+    if (signInError || !signInData.user) {
+      setLoading(false);
       setError(
-        signInError.message === 'Invalid login credentials'
+        signInError?.message === 'Invalid login credentials'
           ? 'E-posta veya şifre hatalı'
-          : signInError.message,
+          : signInError?.message ?? 'Giriş başarısız',
       );
-    } else {
-      router.push('/dashboard');
-      router.refresh();
+      return;
     }
+
+    setLoading(false);
+    router.push('/dashboard');
+    router.refresh();
   };
 
   const shrinkProps = { inputLabel: { shrink: true } };
@@ -99,7 +106,23 @@ export default function LoginForm({ onSwitchToRegister }: LoginFormProps) {
         variant="contained"
         size="large"
         disabled={loading}
-        sx={{ py: 1.5 }}
+        sx={[
+          {
+            bgcolor: 'primary.dark',
+            color: 'primary.contrastText',
+            py: 1.5,
+            '&:hover': {
+              bgcolor: 'primary.main',
+              boxShadow: '0 4px 16px rgba(0,0,0,0.15)',
+            },
+          },
+          (theme) =>
+            theme.applyStyles('dark', {
+              '&:hover': {
+                boxShadow: '0 4px 16px rgba(255,255,255,0.08)',
+              },
+            }),
+        ]}
       >
         {loading ? 'Giriş yapılıyor...' : 'Giriş Yap'}
       </Button>
@@ -107,11 +130,6 @@ export default function LoginForm({ onSwitchToRegister }: LoginFormProps) {
       <Box sx={{ mt: 2, textAlign: 'center' }}>
         <Button onClick={onSwitchToRegister} sx={{ textTransform: 'none' }}>
           Hesabınız yok mu? Kayıt olun
-        </Button>
-      </Box>
-      <Box sx={{ mt: 0.5, textAlign: 'center' }}>
-        <Button href="/admin/login" size="small" sx={{ textTransform: 'none', color: 'text.secondary', fontSize: 12 }}>
-          Yönetici girişi →
         </Button>
       </Box>
     </form>

@@ -1,9 +1,11 @@
 'use client';
 
-import { useMemo } from 'react';
-import { Box, Paper, Stack, Tooltip, Typography, useTheme, useMediaQuery } from '@mui/material';
+import { useMemo, useState } from 'react';
+import { Box, Paper, Stack, Tooltip, Typography, useTheme, useMediaQuery, AppBar, Toolbar, IconButton, ButtonBase } from '@mui/material';
+import { ArrowBack, ArrowForward, TableRestaurant } from '@mui/icons-material';
+import { useColorScheme } from '@mui/material/styles';
 import { CafeTable, RoomLite } from './TableCard';
-import { CATEGORY_META } from '@/lib/categories';
+import { useCategories } from '@/components/CategoryProvider';
 
 interface Props {
   tables: CafeTable[];
@@ -11,6 +13,7 @@ interface Props {
   onClickTable?: (t: CafeTable) => void;
   disabledIds?: Set<string>;
   floor?: string;
+  allowOccupiedClick?: boolean;
 }
 
 type Group = { room: RoomLite; tables: CafeTable[] };
@@ -31,8 +34,9 @@ function groupByRoom(tables: CafeTable[]): Group[] {
   );
 }
 
-const TILE = 44;
-const GAP = 8;
+const TILE = 40;
+const GAP = 12;
+const CELL = TILE + GAP;
 
 const BOOKING_COLORS: Record<string, { bg: string; fg: string; border: string; label: string }> = {
   AVAILABLE: { bg: '#FFFFFF', fg: '#111', border: '', label: 'Müsait' },
@@ -42,9 +46,11 @@ const BOOKING_COLORS: Record<string, { bg: string; fg: string; border: string; l
   MAINTENANCE: { bg: '#52525B', fg: '#FFF', border: '#3F3F46', label: 'Bakımda' },
 };
 
-export default function RoomLayout({ tables, selectedIds, onClickTable, disabledIds, floor }: Props) {
+export default function RoomLayout({ tables, selectedIds, onClickTable, disabledIds, floor, allowOccupiedClick }: Props) {
+  const { categoryMeta } = useCategories();
   const theme = useTheme();
-  const isDark = theme.palette.mode === 'dark';
+  const { mode } = useColorScheme();
+  const isDark = mode === 'dark' || theme.palette.mode === 'dark';
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
 
   const groups = useMemo(() => {
@@ -62,157 +68,332 @@ export default function RoomLayout({ tables, selectedIds, onClickTable, disabled
     return Array.from(map.entries()).sort(([a], [b]) => a.localeCompare(b));
   }, [groups]);
 
+  // Auto-resolve room collisions so they never visually overlap
+  const adjustedPositions = useMemo(() => {
+    const posMap = new Map<string, { col: number; row: number }>();
+    for (const [, fgroups] of byFloor) {
+      const sorted = [...fgroups].sort((a, b) => {
+        const ar = a.room.floor_row ?? 0;
+        const br = b.room.floor_row ?? 0;
+        if (ar !== br) return ar - br;
+        return (a.room.floor_col ?? 0) - (b.room.floor_col ?? 0);
+      });
+      const placed: Array<{ id: string; col: number; row: number; colSpan: number; rowSpan: number }> = [];
+      for (const g of sorted) {
+        let col = g.room.floor_col ?? 0;
+        let row = g.room.floor_row ?? 0;
+        const colSpan = g.room.col_span ?? 1;
+        const rowSpan = g.room.row_span ?? 1;
+        let hasCollision = true;
+        while (hasCollision) {
+          hasCollision = false;
+          for (const p of placed) {
+            if (
+              col < p.col + p.colSpan &&
+              col + colSpan > p.col &&
+              row < p.row + p.rowSpan &&
+              row + rowSpan > p.row
+            ) {
+              hasCollision = true;
+              col = p.col + p.colSpan; // shift right
+              break;
+            }
+          }
+        }
+        placed.push({ id: g.room.id, col, row, colSpan, rowSpan });
+        posMap.set(g.room.id, { col, row });
+      }
+    }
+    return posMap;
+  }, [byFloor]);
+
+  const [selectedMobileRoomId, setSelectedMobileRoomId] = useState<string | null>(null);
+
   if (groups.length === 0) return null;
 
-  const sectionContent = (fgroups: Group[]) => (
-    <Box
-      sx={{
-        display: 'flex',
-        flexWrap: isMobile ? 'nowrap' : 'wrap',
-        gap: 2,
-        overflowX: isMobile ? 'auto' : undefined,
-        pb: isMobile ? 1 : undefined,
-        alignItems: 'flex-start',
-      }}
-    >
-      {fgroups.map((g) => {
-        const catMeta = g.room.category ? CATEGORY_META[g.room.category] : null;
-        const accent = catMeta?.color ?? g.room.color ?? '#7E7E85';
-        const short = catMeta?.short ?? g.room.name?.slice(0, 2).toUpperCase() ?? '??';
-        const sectionLabel = catMeta ? `${short}${g.room.display_order + 1}` : (g.room.name ?? 'Oda');
+  const renderRoom = (g: Group) => {
+    const catMeta = g.room.category ? categoryMeta[g.room.category] : null;
+    const accent = catMeta?.color ?? g.room.color ?? '#7E7E85';
+    const short = catMeta?.short ?? g.room.name?.slice(0, 2).toUpperCase() ?? '??';
+    const sectionLabel = catMeta ? `${short}${g.room.display_order + 1}` : (g.room.name ?? 'Oda');
 
-        const innerMaxX = Math.max(0, ...g.tables.map((t) => t.position_x));
-        const innerMaxY = Math.max(0, ...g.tables.map((t) => t.position_y));
-        const innerW = (innerMaxX + 1) * TILE + innerMaxX * GAP;
-        const innerH = (innerMaxY + 1) * TILE + innerMaxY * GAP;
-        const padX = 20;
-        const padY = 40;
+    const gridW = Math.max(g.room.col_span ?? 8, 1, ...g.tables.map((t) => t.position_x + 1));
+    const gridH = Math.max(g.room.row_span ?? 5, 1, ...g.tables.map((t) => t.position_y + 1));
+    const innerW = gridW * CELL;
+    const innerH = gridH * CELL;
 
-        return (
-          <Paper
-            key={g.room.id}
-            elevation={0}
-            sx={{
-              position: 'relative',
-              borderRadius: 2.5,
-              bgcolor: isDark ? '#16161C' : '#F8F8FA',
-              border: `1.5px solid ${accent}35`,
-              p: 0,
-              flexShrink: 0,
-              width: innerW + padX,
-              minHeight: innerH + padY,
-              transition: 'border-color 0.2s ease, box-shadow 0.2s ease',
-              '&:hover': {
-                borderColor: `${accent}60`,
-                boxShadow: `0 4px 20px ${accent}18`,
-              },
-            }}
-          >
-            <Box
-              sx={{
-                position: 'absolute',
-                top: 8,
-                left: 10,
-                px: 0.75,
-                py: 0.2,
-                borderRadius: 0.5,
-                fontSize: 10,
-                fontWeight: 800,
-                letterSpacing: '0.08em',
-                color: accent,
-                bgcolor: isDark ? '#0E0E12' : '#FFFFFF',
-                textTransform: 'uppercase',
-                whiteSpace: 'nowrap',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                width: 'fit-content',
-                maxWidth: 'calc(100% - 20px)',
-              }}
-            >
-              {sectionLabel}
-            </Box>
-
-            <Box
-              sx={{
-                position: 'relative',
-                width: innerW,
-                height: innerH,
-                mx: 'auto',
-                mt: '28px',
-                mb: '12px',
-              }}
-            >
-              {g.tables.map((t) => (
-                <TableTile
-                  key={t.id}
-                  table={t}
-                  selected={!!selectedIds?.has(t.id)}
-                  disabled={!!disabledIds?.has(t.id)}
-                  onClick={onClickTable}
-                  isDark={isDark}
-                  sx={{
-                    position: 'absolute',
-                    left: t.position_x * (TILE + GAP),
-                    top: t.position_y * (TILE + GAP),
-                  }}
-                />
-              ))}
-            </Box>
-          </Paper>
-        );
-      })}
-    </Box>
-  );
-
-  if (floor && floor !== 'ALL') {
     return (
-      <Stack spacing={2}>
-        <Paper
-          elevation={0}
+      <Paper
+        key={g.room.id}
+        elevation={0}
+        sx={{
+          position: 'relative',
+          borderRadius: 0,
+          bgcolor: isDark ? '#16161C' : '#FFFFFF',
+          p: 0,
+          flexShrink: 0,
+          width: innerW,
+          height: innerH + 28, // 28px for inline header
+          display: 'flex',
+          flexDirection: 'column',
+          boxShadow: isDark ? '0 4px 20px rgba(0,0,0,0.4)' : '0 2px 12px rgba(0,0,0,0.04)',
+          overflow: 'hidden',
+          transition: 'all 0.25s ease',
+          border: `1.5px solid ${accent}30`,
+          '&:hover': {
+            borderColor: `${accent}60`,
+            boxShadow: isDark ? `0 8px 30px ${accent}20` : `0 6px 20px ${accent}15`,
+          },
+        }}
+      >
+        {/* Inline Header */}
+        <Box
           sx={{
-            p: { xs: 1.5, md: 2.5 },
-            bgcolor: isDark ? '#0E0E12' : theme.palette.background.paper,
-            borderRadius: 3,
-            border: `1px solid ${isDark ? 'rgba(255,255,255,0.06)' : theme.palette.divider}`,
-            overflowX: 'auto',
+            height: 28,
+            display: 'flex',
+            alignItems: 'center',
+            px: gridW < 3 ? 0.6 : 1.5,
+            borderBottom: `1px solid ${accent}15`,
+            bgcolor: isDark ? `${accent}08` : `${accent}06`,
+            flexShrink: 0,
           }}
         >
-          {sectionContent(groups)}
-        </Paper>
-        <Legend isDark={isDark} />
+          <Box
+            sx={{
+              width: 8,
+              height: 8,
+              borderRadius: '50%',
+              bgcolor: accent,
+              mr: 1,
+              flexShrink: 0,
+            }}
+          />
+          <Typography
+            sx={{
+              fontSize: 11,
+              fontWeight: 700,
+              letterSpacing: '0.04em',
+              color: accent,
+              textTransform: 'uppercase',
+              whiteSpace: 'nowrap',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+            }}
+          >
+            {sectionLabel}
+          </Typography>
+          {gridW >= 3 && (
+            <Stack
+              direction="row"
+              spacing={0.3}
+              sx={{
+                alignItems: 'center',
+                ml: 'auto',
+                flexShrink: 0,
+                color: isDark ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.35)',
+              }}
+            >
+              <Typography
+                sx={{
+                  fontSize: 10,
+                  fontWeight: 700,
+                }}
+              >
+                {g.tables.length}
+              </Typography>
+              <TableRestaurant sx={{ fontSize: 13, opacity: 0.8 }} />
+            </Stack>
+          )}
+        </Box>
+
+        {/* Room Grid Area */}
+        <Box
+          sx={{
+            position: 'relative',
+            width: innerW,
+            height: innerH,
+            flexGrow: 1,
+          }}
+        >
+          {g.tables.map((t) => (
+            <TableTile
+              key={t.id}
+              table={t}
+              selected={!!selectedIds?.has(t.id)}
+              disabled={!!disabledIds?.has(t.id)}
+              onClick={onClickTable}
+              isDark={isDark}
+              allowOccupiedClick={allowOccupiedClick}
+              round={t.shape === 'ROUND'}
+              sx={{
+                position: 'absolute',
+                left: t.position_x * CELL + GAP / 2,
+                top: t.position_y * CELL + GAP / 2,
+              }}
+            />
+          ))}
+        </Box>
+      </Paper>
+    );
+  };
+
+  // Mobile Single Room View
+  if (isMobile && selectedMobileRoomId) {
+    const group = groups.find((g) => g.room.id === selectedMobileRoomId);
+    if (!group) {
+      setSelectedMobileRoomId(null);
+      return null;
+    }
+    
+    return (
+      <Box sx={{ position: 'fixed', inset: 0, zIndex: 1200, bgcolor: 'background.default', display: 'flex', flexDirection: 'column' }}>
+        <AppBar position="static" elevation={0} sx={{ bgcolor: 'background.paper', borderBottom: 1, borderColor: 'divider' }}>
+          <Toolbar>
+            <IconButton edge="start" onClick={() => setSelectedMobileRoomId(null)} sx={{ mr: 2 }}>
+              <ArrowBack />
+            </IconButton>
+            <Typography variant="h6" component="div" sx={{ flexGrow: 1, fontWeight: 700, color: 'text.primary' }}>
+              {group.room.name || 'Oda'}
+            </Typography>
+          </Toolbar>
+        </AppBar>
+        <Box sx={{ flexGrow: 1, overflow: 'auto', p: 2 }}>
+          <Box sx={{ width: 'fit-content', mx: 'auto' }}>
+            {renderRoom(group)}
+          </Box>
+        </Box>
+        <Box sx={{ p: 2, bgcolor: 'background.paper', borderTop: 1, borderColor: 'divider' }}>
+          <Legend isDark={isDark} />
+        </Box>
+      </Box>
+    );
+  }
+
+  // Mobile Room Selection List
+  if (isMobile) {
+    return (
+      <Stack spacing={3}>
+        {byFloor.map(([f, fgroups]) => (
+          <Box key={f}>
+            {(!floor || floor === 'ALL') && (
+              <Typography variant="h6" sx={{ mb: 1.5, fontWeight: 800, color: 'text.primary' }}>
+                {f}. Kat
+              </Typography>
+            )}
+            <Stack spacing={2}>
+              {fgroups.map(g => {
+                const catMeta = g.room.category ? categoryMeta[g.room.category] : null;
+                const accent = catMeta?.color ?? g.room.color ?? '#7E7E85';
+                const count = g.tables.length;
+                return (
+                  <ButtonBase
+                    key={g.room.id}
+                    onClick={() => setSelectedMobileRoomId(g.room.id)}
+                    sx={{
+                      width: '100%',
+                      textAlign: 'left',
+                      borderRadius: 3,
+                      display: 'block',
+                    }}
+                  >
+                    <Paper
+                      elevation={0}
+                      sx={{
+                        p: 2.5,
+                        bgcolor: isDark ? '#16161C' : '#FFFFFF',
+                        border: `1.5px solid ${accent}40`,
+                        borderRadius: 3,
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        boxShadow: '0 4px 12px rgba(0,0,0,0.02)',
+                      }}
+                    >
+                      <Box>
+                        <Typography variant="subtitle1" sx={{ fontWeight: 800, color: accent }}>
+                          {g.room.name || 'Oda'}
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          {count} Masa
+                        </Typography>
+                      </Box>
+                      <ArrowForward sx={{ color: 'text.secondary' }} />
+                    </Paper>
+                  </ButtonBase>
+                );
+              })}
+            </Stack>
+          </Box>
+        ))}
+        <Box sx={{ pt: 2 }}>
+          <Legend isDark={isDark} />
+        </Box>
       </Stack>
     );
   }
 
+  // Desktop View
+  const VISUAL_OFFSET_X = 52;
+  const VISUAL_OFFSET_Y = 52;
+
   return (
     <Stack spacing={3}>
-      {byFloor.map(([f, fgroups]) => (
-        <Box key={f}>
-          <Typography
-            variant="h6"
-            sx={{
-              mb: 1.5,
-              fontWeight: 800,
-              letterSpacing: '-0.01em',
-              color: 'text.primary',
-            }}
-          >
-            {f}. Kat
-          </Typography>
-          <Paper
-            elevation={0}
-            sx={{
-              p: { xs: 1.5, md: 2.5 },
-              bgcolor: isDark ? '#0E0E12' : theme.palette.background.paper,
-              borderRadius: 3,
-              border: `1px solid ${isDark ? 'rgba(255,255,255,0.06)' : theme.palette.divider}`,
-              overflowX: 'auto',
-            }}
-          >
-            {sectionContent(fgroups)}
-          </Paper>
-        </Box>
-      ))}
+      {byFloor.map(([f, fgroups]) => {
+        // Calculate dynamic canvas size from room positions (same logic as admin)
+        const maxCol = Math.max(0, ...fgroups.map(g => {
+          const adj = adjustedPositions.get(g.room.id);
+          return (adj?.col ?? g.room.floor_col ?? 0) + (g.room.col_span ?? 1);
+        }));
+        const maxRow = Math.max(0, ...fgroups.map(g => {
+          const adj = adjustedPositions.get(g.room.id);
+          return (adj?.row ?? g.room.floor_row ?? 0) + (g.room.row_span ?? 1);
+        }));
+        const canvasH = maxRow * CELL + VISUAL_OFFSET_Y + 52;
+
+        return (
+          <Box key={f}>
+            <Typography
+              variant="h6"
+              sx={{
+                mb: 1.5,
+                fontWeight: 800,
+                letterSpacing: '-0.01em',
+                color: 'text.primary',
+              }}
+            >
+              {f}. Kat
+            </Typography>
+            <Box
+              sx={{
+                position: 'relative',
+                width: '100%',
+                minHeight: canvasH,
+                overflow: 'auto',
+                p: 0,
+                bgcolor: isDark ? 'rgba(0,0,0,0.15)' : 'rgba(0,0,0,0.015)',
+                borderRadius: 3,
+                border: `1px solid ${isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)'}`,
+              }}
+            >
+              {fgroups.map((g) => {
+                const adj = adjustedPositions.get(g.room.id);
+                return (
+                  <Box
+                    key={g.room.id}
+                    sx={{
+                      position: 'absolute',
+                      top: (adj?.row ?? g.room.floor_row ?? 0) * CELL + VISUAL_OFFSET_Y,
+                      left: (adj?.col ?? g.room.floor_col ?? 0) * CELL + VISUAL_OFFSET_X,
+                    }}
+                  >
+                    {renderRoom(g)}
+                  </Box>
+                );
+              })}
+            </Box>
+          </Box>
+        );
+      })}
       <Legend isDark={isDark} />
     </Stack>
   );
@@ -225,6 +406,8 @@ function TableTile({
   onClick,
   isDark,
   sx,
+  allowOccupiedClick,
+  round,
 }: {
   table: CafeTable;
   selected: boolean;
@@ -232,8 +415,11 @@ function TableTile({
   onClick?: (t: CafeTable) => void;
   isDark: boolean;
   sx?: any;
+  allowOccupiedClick?: boolean;
+  round?: boolean;
 }) {
-  const meta = CATEGORY_META[table.category] ?? {
+  const { categoryMeta } = useCategories();
+  const meta = categoryMeta[table.category] ?? {
     label: table.category ?? 'Bilinmeyen',
     short: (table.category ?? '?').slice(0, 2),
     color: '#7E7E85',
@@ -242,7 +428,7 @@ function TableTile({
   };
   const booking = table.booking_status ?? 'AVAILABLE';
   const isAvailable = booking === 'AVAILABLE' && table.status !== 'MAINTENANCE';
-  const clickable = !!onClick && !disabled && isAvailable;
+  const clickable = !!onClick && !disabled && (isAvailable || (allowOccupiedClick && table.status !== 'MAINTENANCE'));
 
   let bg = '#FFFFFF';
   let fg = '#111';
@@ -269,7 +455,15 @@ function TableTile({
     fg = isDark ? '#A1A1AA' : '#52525B';
     border = '#71717A';
     shadow = 'none';
-  } else if (!isDark) {
+  } else if (table.category !== 'GARDEN') {
+    bg = meta.color;
+    fg = '#FFFFFF';
+    border = meta.color;
+  } else if (isDark) {
+    bg = '#0E0E12';
+    fg = '#FFF';
+    border = meta.color;
+  } else {
     bg = '#FFFFFF';
     fg = '#111';
     border = meta.color;
@@ -315,7 +509,7 @@ function TableTile({
           bgcolor: bg,
           color: fg,
           border: `2px solid ${border}`,
-          borderRadius: 1.5,
+          borderRadius: round ? '50%' : 1.5,
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
@@ -325,6 +519,7 @@ function TableTile({
           transition: 'transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease',
           opacity: disabled && !selected ? 0.4 : 1,
           boxShadow: shadow,
+          flexShrink: 0,
           '&:hover': clickable
             ? {
                 transform: 'translateY(-2px) scale(1.06)',
@@ -372,3 +567,4 @@ function LegendDot({ color, label, filled, isDark }: { color: string; label: str
     </Stack>
   );
 }
+

@@ -15,6 +15,7 @@ import {
   Typography,
 } from '@mui/material';
 import ReservationCard, { ReservationRow } from '@/components/reservations/ReservationCard';
+import ChatPanel from '@/components/messages/ChatPanel';
 
 export default function ReservationsPage() {
   const [items, setItems] = useState<ReservationRow[]>([]);
@@ -29,6 +30,9 @@ export default function ReservationsPage() {
   const [editNotes, setEditNotes] = useState('');
   const [editPhone, setEditPhone] = useState('');
   const [saving, setSaving] = useState(false);
+
+  const [msgOpen, setMsgOpen] = useState(false);
+  const [msgReservationId, setMsgReservationId] = useState<string | null>(null);
 
   const load = async () => {
     setLoading(true);
@@ -136,10 +140,28 @@ export default function ReservationsPage() {
               reservation={r}
               onCancel={handleCancel}
               onEdit={openEdit}
+              onOpenMessages={(id) => {
+                setMsgReservationId(id);
+                setMsgOpen(true);
+              }}
             />
           ))}
         </Stack>
       )}
+
+      {/* Mesajlaşma Dialogu */}
+      <Dialog
+        open={msgOpen}
+        onClose={() => setMsgOpen(false)}
+        maxWidth="md"
+        fullWidth
+        slotProps={{ paper: { sx: { height: '70vh' } } }}
+      >
+        <DialogTitle sx={{ pb: 1 }}>Rezervasyon Mesajları</DialogTitle>
+        <DialogContent sx={{ p: 0, display: 'flex', flexDirection: 'column', height: '100%' }}>
+          {msgReservationId && <ChatPanel reservationId={msgReservationId} />}
+        </DialogContent>
+      </Dialog>
 
       {/* Düzenleme Dialogu */}
       <Dialog open={editOpen} onClose={() => setEditOpen(false)} maxWidth="sm" fullWidth>
