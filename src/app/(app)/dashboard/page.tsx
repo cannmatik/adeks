@@ -154,9 +154,15 @@ export default function DashboardPage() {
               label="Başlangıç"
               value={start}
               onChange={(newValue) => {
-                if (newValue) {
-                  const duration = end.diff(start);
-                  setStart(newValue);
+                setStart(newValue as Dayjs);
+                if (newValue && newValue.isValid()) {
+                  let duration = 30 * 60 * 1000;
+                  if (start && start.isValid() && end && end.isValid()) {
+                    duration = end.diff(start);
+                  }
+                  if (isNaN(duration) || duration < 30 * 60 * 1000) {
+                    duration = 30 * 60 * 1000;
+                  }
                   setEnd(newValue.add(duration, 'millisecond'));
                 }
               }}
@@ -165,9 +171,9 @@ export default function DashboardPage() {
             <DateTimePicker
               label="Bitiş"
               value={end}
-              minDateTime={start.add(30, 'minute')}
+              minDateTime={start && start.isValid() ? start.add(30, 'minute') : undefined}
               onChange={(newValue) => {
-                if (newValue) setEnd(newValue);
+                setEnd(newValue as Dayjs);
               }}
               sx={{ width: '100%' }}
             />
