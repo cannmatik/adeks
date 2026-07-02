@@ -15,6 +15,7 @@ const pageTitles: Record<string, string> = {
   '/admin/sessions': 'Anlık Durum',
   '/admin/floor-plan': 'Salon Düzeni',
   '/admin/tables': 'Masa Yönetimi',
+  '/admin/sections': 'Bölüm Yönetimi',
   '/admin/categories': 'Kategori Yönetimi',
   '/admin/reservations': 'Rezervasyonlar',
   '/admin/messages': 'Tüm Mesajlar',

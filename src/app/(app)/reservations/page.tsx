@@ -1,21 +1,14 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import {
-  Alert,
-  Box,
-  Button,
-  CircularProgress,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
-  Stack,
-  TextField,
-  Typography,
-} from '@mui/material';
-import ReservationCard, { ReservationRow } from '@/components/reservations/ReservationCard';
-import ChatPanel from '@/components/messages/ChatPanel';
+import { useEffect, useMemo, useState } from 'react';
+import { Alert, Box, Fade } from '@mui/material';
+import ReservationEditDialog from '@/components/reservations/ReservationEditDialog';
+import ReservationsEmptyState from '@/components/reservations/ReservationsEmptyState';
+import ReservationsList from '@/components/reservations/ReservationsList';
+import ReservationMessagesDialog from '@/components/reservations/ReservationMessagesDialog';
+import ReservationsPageHeader from '@/components/reservations/ReservationsPageHeader';
+import ReservationsSkeleton from '@/components/reservations/ReservationsSkeleton';
+import { ReservationRow } from '@/components/reservations/ReservationCard';
 
 export default function ReservationsPage() {
   const [items, setItems] = useState<ReservationRow[]>([]);
@@ -68,12 +61,12 @@ export default function ReservationsPage() {
     }
   };
 
-  const openEdit = (r: ReservationRow) => {
-    setEditItem(r);
-    setEditStart(new Date(r.start_time).toISOString().slice(0, 16));
-    setEditEnd(new Date(r.end_time).toISOString().slice(0, 16));
-    setEditNotes(r.notes ?? '');
-    setEditPhone(r.contact_phone ?? '');
+  const openEdit = (reservation: ReservationRow) => {
+    setEditItem(reservation);
+    setEditStart(new Date(reservation.start_time).toISOString().slice(0, 16));
+    setEditEnd(new Date(reservation.end_time).toISOString().slice(0, 16));
+    setEditNotes(reservation.notes ?? '');
+    setEditPhone(reservation.contact_phone ?? '');
     setEditOpen(true);
   };
 
@@ -104,116 +97,73 @@ export default function ReservationsPage() {
     }
   };
 
-  return (
-    <Box>
-      <Typography variant="h4" sx={{ mb: 0.5 }}>
-        Rezervasyonlarım
-      </Typography>
-      <Typography variant="body2" sx={{ color: 'text.secondary', mb: 3 }}>
-        Tüm rezervasyon taleplerin ve durumları.
-      </Typography>
+  const { activeItems, pastItems } = useMemo(() => {
+    return {
+      activeItems: items.filter((reservation) => reservation.status !== 'CANCELLED' && reservation.status !== 'COMPLETED'),
+      pastItems: items.filter((reservation) => reservation.status === 'CANCELLED' || reservation.status === 'COMPLETED'),
+    };
+  }, [items]);
 
-      {error && (
-        <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>
-          {error}
-        </Alert>
-      )}
-      {success && (
-        <Alert severity="success" sx={{ mb: 2 }} onClose={() => setSuccess('')}>
-          {success}
-        </Alert>
-      )}
+  return (
+    <Box sx={{ maxWidth: 800, mx: 'auto' }}>
+      <ReservationsPageHeader />
+
+      <Fade in={!!error}>
+        <Box>
+          {error && (
+            <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>
+              {error}
+            </Alert>
+          )}
+        </Box>
+      </Fade>
+      <Fade in={!!success}>
+        <Box>
+          {success && (
+            <Alert severity="success" sx={{ mb: 2 }} onClose={() => setSuccess('')}>
+              {success}
+            </Alert>
+          )}
+        </Box>
+      </Fade>
 
       {loading ? (
-        <Box sx={{ textAlign: 'center', py: 8 }}>
-          <CircularProgress />
-        </Box>
+        <ReservationsSkeleton />
       ) : items.length === 0 ? (
-        <Alert severity="info">
-          Henüz rezervasyonun yok. Masalar sayfasından bir tane oluştur.
-        </Alert>
+        <ReservationsEmptyState />
       ) : (
-        <Stack spacing={2}>
-          {items.map((r) => (
-            <ReservationCard
-              key={r.id}
-              reservation={r}
-              onCancel={handleCancel}
-              onEdit={openEdit}
-              onOpenMessages={(id) => {
-                setMsgReservationId(id);
-                setMsgOpen(true);
-              }}
-            />
-          ))}
-        </Stack>
+        <ReservationsList
+          activeItems={activeItems}
+          pastItems={pastItems}
+          onCancel={handleCancel}
+          onEdit={openEdit}
+          onOpenMessages={(id) => {
+            setMsgReservationId(id);
+            setMsgOpen(true);
+          }}
+        />
       )}
 
-      {/* Mesajlaşma Dialogu */}
-      <Dialog
+      <ReservationMessagesDialog
         open={msgOpen}
+        reservationId={msgReservationId}
         onClose={() => setMsgOpen(false)}
-        maxWidth="md"
-        fullWidth
-        slotProps={{ paper: { sx: { height: '70vh' } } }}
-      >
-        <DialogTitle sx={{ pb: 1 }}>Rezervasyon Mesajları</DialogTitle>
-        <DialogContent sx={{ p: 0, display: 'flex', flexDirection: 'column', height: '100%' }}>
-          {msgReservationId && <ChatPanel reservationId={msgReservationId} />}
-        </DialogContent>
-      </Dialog>
+      />
 
-      {/* Düzenleme Dialogu */}
-      <Dialog open={editOpen} onClose={() => setEditOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>Rezervasyonu Düzenle</DialogTitle>
-        <DialogContent>
-          <Stack spacing={2} sx={{ mt: 1 }}>
-            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
-              <TextField
-                label="Başlangıç"
-                type="datetime-local"
-                value={editStart}
-                onChange={(e) => setEditStart(e.target.value)}
-                slotProps={{ inputLabel: { shrink: true } }}
-                fullWidth
-              />
-              <TextField
-                label="Bitiş"
-                type="datetime-local"
-                value={editEnd}
-                onChange={(e) => setEditEnd(e.target.value)}
-                slotProps={{ inputLabel: { shrink: true } }}
-                fullWidth
-              />
-            </Stack>
-            <TextField
-              label="İletişim Telefonu"
-              type="tel"
-              value={editPhone}
-              onChange={(e) => setEditPhone(e.target.value)}
-              fullWidth
-              placeholder="05XX XXX XX XX"
-            />
-            <TextField
-              label="Not"
-              multiline
-              minRows={2}
-              value={editNotes}
-              onChange={(e) => setEditNotes(e.target.value)}
-              fullWidth
-              placeholder="Rezervasyon notunuz..."
-            />
-          </Stack>
-        </DialogContent>
-        <DialogActions sx={{ px: 3, pb: 2 }}>
-          <Button onClick={() => setEditOpen(false)} disabled={saving}>
-            İptal
-          </Button>
-          <Button variant="contained" onClick={handleEditSave} disabled={saving}>
-            {saving ? 'Kaydediliyor...' : 'Kaydet'}
-          </Button>
-        </DialogActions>
-      </Dialog>
+      <ReservationEditDialog
+        open={editOpen}
+        saving={saving}
+        start={editStart}
+        end={editEnd}
+        notes={editNotes}
+        phone={editPhone}
+        onClose={() => setEditOpen(false)}
+        onSave={handleEditSave}
+        onChangeStart={setEditStart}
+        onChangeEnd={setEditEnd}
+        onChangeNotes={setEditNotes}
+        onChangePhone={setEditPhone}
+      />
     </Box>
   );
 }

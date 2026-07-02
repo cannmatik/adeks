@@ -164,6 +164,12 @@ export default function AdminFloorPlanPage() {
   }, [tables, rooms, originalTables, originalRooms]);
 
   const handleMove = (id: string, roomId: string, x: number, y: number) => {
+    // Check if another table already occupies this position in the same room
+    const conflicting = tables.find(
+      (t) => t.id !== id && t.room?.id === roomId && t.position_x === x && t.position_y === y
+    );
+    if (conflicting) return; // Üst üste bırakma engelle
+
     setTables((prev) =>
       prev.map((t) =>
         t.id === id
@@ -193,14 +199,13 @@ export default function AdminFloorPlanPage() {
     if (!editTable) return;
     setEditOpen(false);
     const newRoom = rooms.find((r) => r.id === editRoomId) || null;
-    const finalCategory = newRoom?.category || editCategory;
     setTables((prev) =>
       prev.map((t) =>
         t.id === editTable.id
           ? {
               ...t,
               number: editNumber,
-              category: finalCategory,
+              category: editCategory,
               status: editStatus,
               room: newRoom,
               notes: editNotes || null,
@@ -644,7 +649,23 @@ export default function AdminFloorPlanPage() {
 
       {/* Edit Table Modal */}
       <Dialog open={editOpen} onClose={() => setEditOpen(false)} maxWidth="xs" fullWidth>
-        <DialogTitle>Masayı Düzenle #{editTable?.number}</DialogTitle>
+        <DialogTitle>
+          <Stack direction="row" sx={{ justifyContent: 'space-between', alignItems: 'center' }}>
+            <span>Masayı Düzenle #{editTable?.number}</span>
+            <IconButton
+              size="small"
+              color="error"
+              onClick={() => {
+                if (editTable) {
+                  handleDelete(editTable.id);
+                  setEditOpen(false);
+                }
+              }}
+            >
+              <Delete fontSize="small" />
+            </IconButton>
+          </Stack>
+        </DialogTitle>
         <DialogContent>
           <Stack spacing={2} sx={{ mt: 1 }}>
             <TextField
@@ -658,9 +679,8 @@ export default function AdminFloorPlanPage() {
             <TextField
               select
               label="Kategori"
-              value={editRoomId && rooms.find(r => r.id === editRoomId)?.category ? rooms.find(r => r.id === editRoomId)?.category : editCategory}
+              value={editCategory}
               onChange={(e) => setEditCategory(e.target.value as TableCategory)}
-              disabled={!!(editRoomId && rooms.find(r => r.id === editRoomId)?.category)}
               fullWidth
             >
               {dbCategories.map((c) => (
@@ -692,7 +712,14 @@ export default function AdminFloorPlanPage() {
               select
               label="Bölüm (Oda)"
               value={editRoomId}
-              onChange={(e) => setEditRoomId(e.target.value)}
+              onChange={(e) => {
+                const newRoomId = e.target.value;
+                setEditRoomId(newRoomId);
+                const newRoom = rooms.find(r => r.id === newRoomId);
+                if (newRoom && newRoom.category) {
+                  setEditCategory(newRoom.category);
+                }
+              }}
               fullWidth
             >
               {rooms.map((r) => (

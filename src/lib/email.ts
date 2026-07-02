@@ -29,7 +29,7 @@ function wrapEmailBody(title: string, bodyContent: string, isOtp = false, otpCod
         <table width="480" cellpadding="0" cellspacing="0" style="max-width: 480px; width: 100%; background-color: #ffffff; border-radius: 16px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); overflow: hidden; border: 1px solid #e5e7eb;">
           <tr>
             <td align="center" style="padding: 40px 0 0 0;">
-              <div style="font-weight: 800; font-size: 26px; color: #00D4FF; font-family: 'Montserrat', sans-serif;">ADEKS</div>
+              <div style="font-weight: 800; font-size: 26px; color: #dc2626; font-family: 'Montserrat', sans-serif;">ADEKS</div>
             </td>
           </tr>
           <tr>
@@ -40,8 +40,8 @@ function wrapEmailBody(title: string, bodyContent: string, isOtp = false, otpCod
               <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-bottom: 32px;">
                 <tr>
                   <td align="center">
-                    <div style="background-color: #f0f7ff; border-radius: 12px; padding: 20px 0; width: 100%; text-align: center; border: 1px solid #dbeafe;">
-                      <span style="font-family: Helvetica, Arial, sans-serif; font-size: 36px; font-weight: 700; color: #00D4FF; letter-spacing: 4px;">${otpCode}</span>
+                    <div style="background-color: #111827; border-radius: 12px; padding: 20px 0; width: 100%; text-align: center; border: 1px solid #dc2626;">
+                      <span style="font-family: Helvetica, Arial, sans-serif; font-size: 36px; font-weight: 700; color: #ef4444; letter-spacing: 4px;">${otpCode}</span>
                     </div>
                   </td>
                 </tr>

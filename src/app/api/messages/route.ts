@@ -54,7 +54,26 @@ export async function GET(req: Request) {
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  return NextResponse.json({ conversationId: conversation.id, messages: messages ?? [] });
+  const unreadMessageIds = messages
+    ?.filter((m) => !m.is_read && m.sender_id !== user.id)
+    .map((m) => m.id) ?? [];
+
+  if (unreadMessageIds.length > 0) {
+    await supabase.from('messages').update({ is_read: true }).in('id', unreadMessageIds);
+  }
+
+  // Rezervasyon detaylarını da çek
+  const { data: reservation } = await supabase
+    .from('reservations')
+    .select('*, owner:profiles!user_id(full_name, email), tables:reservation_tables(table:tables(number))')
+    .eq('id', reservationId)
+    .single();
+
+  if (reservation && profile?.role !== 'admin') {
+    delete (reservation as any).admin_notes;
+  }
+
+  return NextResponse.json({ conversationId: conversation.id, messages: messages ?? [], reservation });
 }
 
 // POST: mesaj gönder

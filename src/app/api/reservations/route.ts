@@ -33,11 +33,12 @@ export async function GET(req: Request) {
   let query = supabase
     .from('reservations')
     .select(
-      `id, start_time, end_time, status, notes, user_id, created_at,
+      `id, start_time, end_time, status, notes, admin_notes, user_id, created_at,
        owner:profiles!reservations_user_id_fkey(id, full_name, email),
        tables:reservation_tables(table:tables(id, number, category)),
        contact_phone,
-       participants:reservation_participants(user:profiles(id, full_name, email))`,
+       participants:reservation_participants(user:profiles(id, full_name, email)),
+       conversation:conversations(id, messages(id, is_read, sender_id))`
     )
     .order('start_time', { ascending: false });
 
@@ -47,7 +48,23 @@ export async function GET(req: Request) {
 
   const { data, error } = await query;
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json({ reservations: data ?? [] });
+  
+  const isAdmin = profile?.role === 'admin';
+
+  const reservationsWithUnread = data?.map((r: any) => {
+    let unread_count = 0;
+    if (r.conversation?.messages) {
+      unread_count = r.conversation.messages.filter((m: any) => !m.is_read && m.sender_id !== user.id).length;
+    }
+    const mapped = { ...r, unread_count, conversation: undefined };
+    // admin_notes sadece admin'lere gösterilir
+    if (!isAdmin) {
+      delete mapped.admin_notes;
+    }
+    return mapped;
+  }) ?? [];
+
+  return NextResponse.json({ reservations: reservationsWithUnread });
 }
 
 export async function POST(req: Request) {

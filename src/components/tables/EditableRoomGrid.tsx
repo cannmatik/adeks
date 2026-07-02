@@ -33,6 +33,9 @@ export default function EditableRoomGrid({
   const innerW = gridW * CELL;
   const innerH = gridH * CELL;
 
+  // Build a set of occupied positions for overlap detection
+  const allOccupied = new Set(tables.map((t) => `${t.position_x},${t.position_y}`));
+
   return (
     <Box
       sx={{
@@ -45,6 +48,8 @@ export default function EditableRoomGrid({
         const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
         const x = Math.floor((e.clientX - rect.left) / CELL);
         const y = Math.floor((e.clientY - rect.top) / CELL);
+        // Prevent adding a table on an occupied cell
+        if (allOccupied.has(`${x},${y}`)) return;
         onTableAdd(roomId, x, y);
       }}
     >
@@ -73,20 +78,27 @@ export default function EditableRoomGrid({
       />
 
       {/* Tables */}
-      {tables.map((t) => (
-        <MemoDraggableTile
-          key={t.id}
-          table={t}
-          onMove={onTableMove}
-          onDelete={onTableDelete}
-          onEdit={onTableEdit}
-          accent={accent}
-          isDark={isDark}
-          gridW={gridW}
-          gridH={gridH}
-          round={t.shape === 'ROUND'}
-        />
-      ))}
+      {tables.map((t) => {
+        // Occupied positions excluding this table's own position
+        const otherOccupied = new Set(
+          tables.filter((o) => o.id !== t.id).map((o) => `${o.position_x},${o.position_y}`)
+        );
+        return (
+          <MemoDraggableTile
+            key={t.id}
+            table={t}
+            onMove={onTableMove}
+            onDelete={onTableDelete}
+            onEdit={onTableEdit}
+            accent={accent}
+            isDark={isDark}
+            gridW={gridW}
+            gridH={gridH}
+            round={t.shape === 'ROUND'}
+            occupiedPositions={otherOccupied}
+          />
+        );
+      })}
     </Box>
   );
 }

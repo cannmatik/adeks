@@ -20,7 +20,7 @@ import {
   Typography,
 } from '@mui/material';
 import { Add, Delete, Edit, Map } from '@mui/icons-material';
-import { CafeTable } from '@/components/tables/TableCard';
+import { CafeTable, RoomLite } from '@/components/tables/TableCard';
 import CategoryBadge from '@/components/tables/CategoryBadge';
 import {
   STATUS_COLOR,
@@ -39,6 +39,9 @@ interface FormState {
   status: TableStatus;
   notes: string;
   shape: string;
+  room_id: string;
+  position_x: number;
+  position_y: number;
 }
 
 const emptyForm: FormState = {
@@ -47,11 +50,15 @@ const emptyForm: FormState = {
   status: 'AVAILABLE',
   notes: '',
   shape: 'SQUARE',
+  room_id: '',
+  position_x: 0,
+  position_y: 0,
 };
 
 export default function AdminTablesPage() {
   const { categories: dbCategories, categoryMeta } = useCategories();
   const [tables, setTables] = useState<CafeTable[]>([]);
+  const [rooms, setRooms] = useState<RoomLite[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -60,10 +67,17 @@ export default function AdminTablesPage() {
 
   const load = async () => {
     setLoading(true);
-    const res = await fetch('/api/tables');
-    const data = await res.json();
-    if (res.ok) setTables(data.tables);
-    else setError(data.error);
+    const [tablesRes, roomsRes] = await Promise.all([
+      fetch('/api/tables'),
+      fetch('/api/rooms'),
+    ]);
+    const tablesData = await tablesRes.json();
+    const roomsData = await roomsRes.json();
+    
+    if (tablesRes.ok) setTables(tablesData.tables);
+    else setError(tablesData.error);
+    
+    if (roomsRes.ok) setRooms(roomsData.rooms || []);
     setLoading(false);
   };
 
@@ -86,6 +100,9 @@ export default function AdminTablesPage() {
       // hourly_rate artık tables tablosunda yok, kategoriden gelir
       notes: t.notes ?? '',
       shape: t.shape ?? 'SQUARE',
+      room_id: t.room?.id ?? '',
+      position_x: t.position_x ?? 0,
+      position_y: t.position_y ?? 0,
     });
     setDialogOpen(true);
   };
@@ -151,6 +168,11 @@ export default function AdminTablesPage() {
                     <Typography variant="h5" sx={{ minWidth: 56, color: categoryMeta[t.category]?.color ?? '#C0C0C0' }}>
                       #{t.number}
                     </Typography>
+                    {t.room && (
+                      <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary' }}>
+                        {t.room.name}
+                      </Typography>
+                    )}
                     <CategoryBadge category={t.category} />
                     <Chip
                       size="small"
@@ -205,6 +227,45 @@ export default function AdminTablesPage() {
                 <MenuItem key={c.name} value={c.name}>{categoryMeta[c.name]?.label ?? c.label}</MenuItem>
               ))}
             </TextField>
+            <TextField
+              select
+              label="Bölüm"
+              value={form.room_id}
+              onChange={(e) => {
+                const newRoomId = e.target.value;
+                const newRoom = rooms.find(r => r.id === newRoomId);
+                setForm({ 
+                  ...form, 
+                  room_id: newRoomId,
+                  // If the room has a category, set it as default but user can still change it
+                  category: (newRoom?.category || form.category) as TableCategory
+                });
+              }}
+              fullWidth
+            >
+              <MenuItem value="">— Seçilmedi —</MenuItem>
+              {rooms.map((r) => (
+                <MenuItem key={r.id} value={r.id}>{r.name}</MenuItem>
+              ))}
+            </TextField>
+            <Stack direction="row" spacing={2}>
+              <TextField
+                label="X Pozisyonu"
+                type="number"
+                value={form.position_x}
+                onChange={(e) => setForm({ ...form, position_x: Number(e.target.value) })}
+                slotProps={{ inputLabel: { shrink: true } }}
+                fullWidth
+              />
+              <TextField
+                label="Y Pozisyonu"
+                type="number"
+                value={form.position_y}
+                onChange={(e) => setForm({ ...form, position_y: Number(e.target.value) })}
+                slotProps={{ inputLabel: { shrink: true } }}
+                fullWidth
+              />
+            </Stack>
             <TextField
               select
               label="Durum"

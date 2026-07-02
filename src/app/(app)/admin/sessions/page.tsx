@@ -20,12 +20,15 @@ import {
   ListItem,
   ListItemText,
   Paper,
+  Badge,
 } from '@mui/material';
-import { Refresh, ViewSidebar, Event, AccessTime } from '@mui/icons-material';
+import { Refresh, ViewSidebar, Event, AccessTime, MarkChatUnread, ChatBubbleOutlined, InfoOutlined } from '@mui/icons-material';
+import ReservationDetails from '@/components/admin/ReservationDetails';
 import { createClient } from '@/lib/supabase/client';
 import RoomLayout from '@/components/tables/RoomLayout';
 import { CafeTable } from '@/components/tables/TableCard';
 import { useCategories } from '@/components/CategoryProvider';
+import ChatPanel from '@/components/messages/ChatPanel';
 
 interface ActiveSession {
   id: string;
@@ -81,12 +84,15 @@ export default function AdminSessionsPage() {
   const [anonLabel, setAnonLabel] = useState('Misafir');
   const [saving, setSaving] = useState(false);
 
-  const [selectedReservation, setSelectedReservation] = useState<any | null>(null);
   const [resDialogLoading, setResDialogLoading] = useState(false);
   const [resDialogError, setResDialogError] = useState('');
 
-  const load = async () => {
-    setLoading(true);
+  const [msgOpen, setMsgOpen] = useState(false);
+  const [msgReservationId, setMsgReservationId] = useState<string | null>(null);
+  const [detailsData, setDetailsData] = useState<any>(null);
+
+  const load = async (silent = false) => {
+    if (!silent) setLoading(true);
     setError('');
     const [tRes, sRes, mRes, rRes] = await Promise.all([
       fetch('/api/tables'),
@@ -111,7 +117,12 @@ export default function AdminSessionsPage() {
         const endTime = new Date(r.end_time);
         return endTime >= now;
       });
-      upcoming.sort((a: any, b: any) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime());
+      upcoming.sort((a: any, b: any) => {
+        const aUnread = a.unread_count > 0 ? 1 : 0;
+        const bUnread = b.unread_count > 0 ? 1 : 0;
+        if (aUnread !== bUnread) return bUnread - aUnread;
+        return new Date(a.start_time).getTime() - new Date(b.start_time).getTime();
+      });
       setReservations(upcoming);
     }
     
@@ -123,9 +134,10 @@ export default function AdminSessionsPage() {
   useEffect(() => {
     const ch = supabase
       .channel('admin-sessions-tables')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'table_sessions' }, () => load())
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'tables' }, () => load())
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'reservations' }, () => load())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'table_sessions' }, () => load(true))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'tables' }, () => load(true))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'reservations' }, () => load(true))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'messages' }, () => load(true))
       .subscribe();
     return () => { supabase.removeChannel(ch); };
   }, []);
@@ -243,8 +255,29 @@ export default function AdminSessionsPage() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'İşlem başarısız');
-      setSelectedReservation(null);
+      setDetailsData(null);
       load();
+    } catch (err: any) {
+      setResDialogError(err.message);
+    } finally {
+      setResDialogLoading(false);
+    }
+  };
+
+  const deleteReservation = async (id: string) => {
+    if (!confirm('Bu rezervasyonu silmek istediğinize emin misiniz?')) return;
+    setResDialogLoading(true);
+    setResDialogError('');
+    try {
+      const res = await fetch(`/api/reservations/${id}`, {
+        method: 'DELETE',
+      });
+      if (res.ok) {
+        setDetailsData(null);
+        load();
+      } else {
+        setResDialogError((await res.json()).error);
+      }
     } catch (err: any) {
       setResDialogError(err.message);
     } finally {
@@ -289,7 +322,6 @@ export default function AdminSessionsPage() {
          throw new Error(data.error || 'Rezervasyon durumu güncellenemedi');
       }
 
-      setSelectedReservation(null);
       load();
     } catch (err: any) {
       setResDialogError(err.message);
@@ -308,7 +340,7 @@ export default function AdminSessionsPage() {
           </Typography>
         </Box>
         <Stack direction="row" spacing={1}>
-          <IconButton onClick={load} title="Yenile">
+          <IconButton onClick={() => load()} title="Yenile">
             <Refresh />
           </IconButton>
           <IconButton onClick={() => setSidebarOpen(!sidebarOpen)} title="Paneli Aç/Kapat" color={sidebarOpen ? 'primary' : 'default'}>
@@ -336,7 +368,7 @@ export default function AdminSessionsPage() {
           <Paper
             elevation={0}
             sx={{
-              width: { xs: '100%', md: 340 },
+              width: { xs: '100%', md: 450 },
               flexShrink: 0,
               display: 'flex',
               flexDirection: 'column',
@@ -400,9 +432,14 @@ export default function AdminSessionsPage() {
               <Stack direction="row" sx={{ alignItems: 'center', gap: 1, mb: 1, flexShrink: 0 }}>
                 <Event fontSize="small" color="secondary" />
                 <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>Yaklaşan Randevular</Typography>
+                {reservations.filter((r) => r.unread_count > 0).length > 0 && (
+                  <Typography variant="caption" sx={{ fontWeight: 800, ml: 1, px: 1, py: 0.5, bgcolor: 'error.main', color: 'error.contrastText', borderRadius: 1 }}>
+                    {reservations.filter((r) => r.unread_count > 0).length} Yeni Mesaj
+                  </Typography>
+                )}
                 <Chip size="small" label={reservations.length} color="secondary" variant="outlined" sx={{ ml: 'auto', fontWeight: 700 }} />
               </Stack>
-              <List sx={{ p: 0, flexGrow: 1, overflow: 'auto' }}>
+              <List sx={{ p: 0, pr: 1, flexGrow: 1, overflow: 'auto', '&::-webkit-scrollbar': { width: '4px' }, '&::-webkit-scrollbar-thumb': { bgcolor: 'divider', borderRadius: '4px' } }}>
                 {reservations.length === 0 ? (
                   <Typography variant="body2" color="text.secondary" sx={{ py: 2, textAlign: 'center' }}>Yaklaşan randevu yok.</Typography>
                 ) : (
@@ -413,12 +450,27 @@ export default function AdminSessionsPage() {
                     return (
                       <ListItem 
                         key={r.id} 
-                        sx={{ px: 0, py: 1.5, borderBottom: '1px dashed', borderColor: 'divider', '&:last-child': { borderBottom: 'none' } }}
+                        secondaryAction={
+                          <IconButton 
+                            edge="end" 
+                            color={r.unread_count > 0 ? "primary" : "default"}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setMsgReservationId(r.id);
+                              setMsgOpen(true);
+                            }}
+                          >
+                            <Badge color="error" variant="dot" invisible={!(r.unread_count > 0)}>
+                              {r.unread_count > 0 ? <MarkChatUnread color="primary" /> : <ChatBubbleOutlined sx={{ opacity: 0.3 }} />}
+                            </Badge>
+                          </IconButton>
+                        }
+                        sx={{ px: 0, py: 1.5, borderBottom: '1px dashed', borderColor: 'divider', '&:last-child': { borderBottom: 'none' }, pr: 6 }}
                       >
                         <ListItemText
                           disableTypography
-                          sx={{ cursor: 'pointer' }}
-                          onClick={() => setSelectedReservation(r)}
+                          sx={{ cursor: 'pointer', m: 0 }}
+                          onClick={() => setDetailsData(r)}
                           primary={
                             <Typography variant="body2" sx={{ fontWeight: 800 }}>
                               {r.owner?.full_name || r.owner?.email || 'Bilinmiyor'}
@@ -500,67 +552,39 @@ export default function AdminSessionsPage() {
         </DialogActions>
       </Dialog>
 
-      <Dialog open={!!selectedReservation} onClose={() => !resDialogLoading && setSelectedReservation(null)} maxWidth="sm" fullWidth>
-        <DialogTitle>Rezervasyon Detayı</DialogTitle>
-        <DialogContent>
-          {selectedReservation && (
-            <Stack spacing={2} sx={{ mt: 1 }}>
-              {resDialogError && <Alert severity="error">{resDialogError}</Alert>}
-              <Typography variant="body1">
-                <strong>Kullanıcı:</strong> {selectedReservation.owner?.full_name || selectedReservation.owner?.email || 'Bilinmiyor'}
-              </Typography>
-              <Typography variant="body2">
-                <strong>Tarih:</strong> {new Date(selectedReservation.start_time).toLocaleString('tr-TR')} - {new Date(selectedReservation.end_time).toLocaleTimeString('tr-TR')}
-              </Typography>
-              <Typography variant="body2">
-                <strong>Durum:</strong> {selectedReservation.status === 'HOLD' ? 'Beklemede' : 'Onaylı'}
-              </Typography>
-              {selectedReservation.contact_phone && (
-                <Typography variant="body2">
-                  <strong>İletişim:</strong> {selectedReservation.contact_phone}
-                </Typography>
-              )}
-              {selectedReservation.notes && (
-                <Typography variant="body2">
-                  <strong>Notlar:</strong> {selectedReservation.notes}
-                </Typography>
-              )}
-              <Box>
-                <Typography variant="body2" sx={{ mb: 1 }}><strong>Seçili Masalar:</strong></Typography>
-                <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', gap: 1 }}>
-                  {selectedReservation.tables?.map((rt: any) => (
-                    <Chip key={rt.table?.id} label={`#${rt.table?.number}`} size="small" />
-                  ))}
-                </Stack>
-              </Box>
-            </Stack>
+      {/* Mesajlaşma Dialogu */}
+      <Dialog
+        open={msgOpen}
+        onClose={() => { setMsgOpen(false); load(); }}
+        maxWidth="md"
+        fullWidth
+        slotProps={{ paper: { sx: { height: '70vh' } } }}
+      >
+        <DialogTitle sx={{ pb: 1 }}>Rezervasyon Mesajları</DialogTitle>
+        <DialogContent sx={{ p: 0, display: 'flex', flexDirection: 'column', height: '100%' }}>
+          {msgReservationId && <ChatPanel reservationId={msgReservationId} />}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!detailsData} onClose={() => setDetailsData(null)} maxWidth="sm" fullWidth>
+        <DialogTitle>Rezervasyon Detayları</DialogTitle>
+        <DialogContent dividers>
+          {resDialogError && <Alert severity="error" sx={{ mb: 2 }}>{resDialogError}</Alert>}
+          {detailsData && (
+            <ReservationDetails 
+              reservation={detailsData} 
+              onUpdateStatus={handleReservationAction}
+              onDelete={deleteReservation}
+              extraActions={
+                detailsData.status === 'CONFIRMED' && (
+                  <Button size="small" variant="contained" color="secondary" onClick={() => handleOpenAllTables(detailsData)} disabled={resDialogLoading}>
+                    {resDialogLoading ? 'Açılıyor...' : 'Tüm Masaları Aç'}
+                  </Button>
+                )
+              }
+            />
           )}
         </DialogContent>
-        <DialogActions sx={{ px: 3, pb: 2, justifyContent: 'space-between' }}>
-          {selectedReservation?.status === 'HOLD' ? (
-             <Box sx={{ display: 'flex', gap: 1, width: '100%', justifyContent: 'flex-end' }}>
-               <Button onClick={() => setSelectedReservation(null)} disabled={resDialogLoading}>Kapat</Button>
-               <Button variant="outlined" color="error" onClick={() => handleReservationAction(selectedReservation.id, 'CANCELLED')} disabled={resDialogLoading}>
-                 Reddet
-               </Button>
-               <Button variant="contained" color="success" onClick={() => handleReservationAction(selectedReservation.id, 'CONFIRMED')} disabled={resDialogLoading}>
-                 {resDialogLoading ? 'İşleniyor...' : 'Onayla'}
-               </Button>
-             </Box>
-          ) : (
-             <Box sx={{ display: 'flex', gap: 1, width: '100%', justifyContent: 'space-between' }}>
-               <Button variant="outlined" color="error" onClick={() => handleReservationAction(selectedReservation.id, 'CANCELLED')} disabled={resDialogLoading}>
-                 İptal Et
-               </Button>
-               <Box sx={{ display: 'flex', gap: 1 }}>
-                 <Button onClick={() => setSelectedReservation(null)} disabled={resDialogLoading}>Kapat</Button>
-                 <Button variant="contained" color="primary" onClick={() => handleOpenAllTables(selectedReservation)} disabled={resDialogLoading}>
-                   {resDialogLoading ? 'Açılıyor...' : 'Tüm Masaları Aç'}
-                 </Button>
-               </Box>
-             </Box>
-          )}
-        </DialogActions>
       </Dialog>
     </Box>
   );

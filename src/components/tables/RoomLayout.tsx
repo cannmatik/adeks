@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useMemo, useState, useRef } from 'react';
-import { Box, Paper, Stack, Tooltip, Typography, useTheme, useMediaQuery, AppBar, Toolbar, IconButton, ButtonBase } from '@mui/material';
+import { Box, Paper, Stack, Tooltip, Typography, useTheme, useMediaQuery, AppBar, Toolbar, IconButton, ButtonBase, Snackbar, Alert, Button } from '@mui/material';
 import { ArrowBack, ArrowForward, TableRestaurant, GridView, Map as MapIcon, KeyboardArrowUp, KeyboardArrowDown, KeyboardArrowLeft, KeyboardArrowRight } from '@mui/icons-material';
 import { useColorScheme } from '@mui/material/styles';
 import { CafeTable, RoomLite } from './TableCard';
@@ -108,7 +108,8 @@ export default function RoomLayout({ tables, selectedIds, onClickTable, disabled
   }, [byFloor]);
 
   const [selectedMobileRoomId, setSelectedMobileRoomId] = useState<string | null>(null);
-  const [mobileViewMode, setMobileViewMode] = useState<'MAP' | 'LIST'>('MAP'); // User seems to prefer map
+  const [mobileViewMode, setMobileViewMode] = useState<'MAP' | 'LIST'>('LIST'); // User seems to prefer list by default
+  const [showMapHint, setShowMapHint] = useState(false);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const scrollMap = (dx: number, dy: number) => {
@@ -269,7 +270,7 @@ export default function RoomLayout({ tables, selectedIds, onClickTable, disabled
       <Box sx={{ position: 'fixed', inset: 0, zIndex: 1200, bgcolor: 'background.default', display: 'flex', flexDirection: 'column' }}>
         <AppBar position="static" elevation={0} sx={{ bgcolor: 'background.paper', borderBottom: 1, borderColor: 'divider' }}>
           <Toolbar>
-            <IconButton edge="start" onClick={() => setSelectedMobileRoomId(null)} sx={{ mr: 2 }}>
+            <IconButton edge="start" onClick={() => { setSelectedMobileRoomId(null); setMobileViewMode('LIST'); }} sx={{ mr: 2 }}>
               <ArrowBack />
             </IconButton>
             <Typography variant="h6" component="div" sx={{ flexGrow: 1, fontWeight: 700, color: 'text.primary' }}>
@@ -340,6 +341,24 @@ export default function RoomLayout({ tables, selectedIds, onClickTable, disabled
         <Box sx={{ p: 2, pb: 12, bgcolor: 'background.paper', borderTop: 1, borderColor: 'divider' }}>
           <Legend isDark={isDark} />
         </Box>
+        <Snackbar
+          open={showMapHint && mobileViewMode === 'LIST'}
+          autoHideDuration={8000}
+          onClose={() => setShowMapHint(false)}
+          anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+          sx={{ top: { xs: 70, sm: 70 } }}
+        >
+          <Alert 
+            onClose={() => {
+              if (typeof window !== 'undefined') localStorage.setItem('mapHintDismissed', 'true');
+              setShowMapHint(false);
+            }} 
+            severity="info" 
+            sx={{ width: '100%', boxShadow: 3, alignItems: 'center' }}
+          >
+            Masaların kafedeki gerçek dizilimini (yan yana, karşılıklı vb.) görmek için sağ üstteki ikona tıklayabilirsiniz.
+          </Alert>
+        </Snackbar>
       </Box>
     );
   }
@@ -363,7 +382,12 @@ export default function RoomLayout({ tables, selectedIds, onClickTable, disabled
                 return (
                   <ButtonBase
                     key={g.room.id}
-                    onClick={() => setSelectedMobileRoomId(g.room.id)}
+                    onClick={() => { 
+                      setSelectedMobileRoomId(g.room.id); 
+                      if (typeof window !== 'undefined' && localStorage.getItem('mapHintDismissed') !== 'true') {
+                        setShowMapHint(true); 
+                      }
+                    }}
                     sx={{
                       width: '100%',
                       textAlign: 'left',
@@ -554,6 +578,7 @@ function TableTile({
   return (
     <Tooltip
       arrow
+      disableTouchListener
       title={
         <Box sx={{ p: 0.25 }}>
           <Typography variant="body2" sx={{ fontWeight: 700 }}>
@@ -597,9 +622,11 @@ function TableTile({
           flexShrink: 0,
           '&:hover': clickable
             ? {
-                transform: 'translateY(-2px) scale(1.06)',
-                boxShadow: `0 6px 18px ${meta.color}55`,
-                zIndex: 1,
+                '@media (hover: hover)': {
+                  transform: 'translateY(-2px) scale(1.06)',
+                  boxShadow: `0 6px 18px ${meta.color}55`,
+                  zIndex: 1,
+                },
               }
             : undefined,
           ...sx,

@@ -36,6 +36,7 @@ import {
   Person,
   Close,
   Category as CategoryIcon,
+  MeetingRoom,
 } from '@mui/icons-material';
 import { useAuth } from './AuthProvider';
 import { createClient } from '@/lib/supabase/client';
@@ -51,6 +52,7 @@ const adminLinks = [
   { href: '/admin/sessions', label: 'Anlık Durum', icon: <Bolt /> },
   { href: '/admin/floor-plan', label: 'Salon Düzeni', icon: <Map /> },
   { href: '/admin/tables', label: 'Masa Yönetimi', icon: <TableRestaurant /> },
+  { href: '/admin/sections', label: 'Bölüm Yönetimi', icon: <MeetingRoom /> },
   { href: '/admin/categories', label: 'Kategori Yönetimi', icon: <CategoryIcon /> },
   { href: '/admin/reservations', label: 'Rezervasyonlar', icon: <EventAvailable /> },
 ];

@@ -9,6 +9,7 @@ import {
   Divider,
   IconButton,
   Stack,
+  Tooltip,
   Typography,
 } from '@mui/material';
 import {
@@ -18,6 +19,7 @@ import {
   Edit,
   Event,
   Group,
+  Phone,
   StickyNote2,
 } from '@mui/icons-material';
 import CategoryBadge from '@/components/tables/CategoryBadge';
@@ -78,6 +80,14 @@ function durationHours(start: string, end: string) {
   return Math.max(0, ms / 3_600_000);
 }
 
+const STATUS_ACCENT: Record<ReservationStatus, string> = {
+  REQUESTED: '#8A8A91',
+  CONFIRMED: '#10B981',
+  CANCELLED: '#F87171',
+  COMPLETED: '#6B7280',
+  HOLD: '#F59E0B',
+};
+
 interface Props {
   reservation: ReservationRow;
   showOwner?: boolean;
@@ -106,138 +116,236 @@ export default function ReservationCard({
     0
   );
   const estimatedTotal = Math.round(hours * totalRate);
+  const accentColor = STATUS_ACCENT[r.status];
+  const isPast = r.status === 'CANCELLED' || r.status === 'COMPLETED';
 
   return (
     <Card
       sx={{
         position: 'relative',
         overflow: 'hidden',
-        borderLeft: '4px solid',
-        borderColor: `${statusColor}.main`,
-        transition: 'box-shadow 0.2s',
-        '&:hover': { boxShadow: 4 },
+        opacity: isPast ? 0.7 : 1,
+        borderLeft: 'none',
+        border: '1px solid',
+        borderColor: 'divider',
+        bgcolor: 'background.paper',
+        backgroundImage: 'none',
+        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+        '&:hover': {
+          transform: isPast ? 'none' : 'translateY(-2px)',
+          boxShadow: isPast ? undefined : '0 10px 28px rgba(0,0,0,0.14)',
+          borderColor: accentColor,
+        },
+        '&::before': {
+          content: '""',
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          width: '4px',
+          height: '100%',
+          bgcolor: accentColor,
+          borderRadius: '4px 0 0 4px',
+        },
       }}
     >
-      <CardContent sx={{ p: 2.5 }}>
-        {/* Üst satır: Durum + Actions */}
+      <CardContent sx={{ p: { xs: 2, sm: 2.5 }, '&:last-child': { pb: { xs: 2, sm: 2.5 } } }}>
+        {/* Header: Status chip + action icons */}
         <Stack
           direction="row"
-          spacing={1}
           sx={{
             justifyContent: 'space-between',
-            alignItems: 'flex-start',
-            mb: 1.5,
+            alignItems: 'center',
+            mb: 2,
           }}
         >
           <Chip
             size="small"
             label={statusLabel}
             color={statusColor}
-            sx={{ fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5 }}
+            sx={{
+              fontWeight: 700,
+              textTransform: 'uppercase',
+              letterSpacing: '0.08em',
+              fontSize: '0.68rem',
+              height: 26,
+            }}
           />
-          <Stack direction="row" spacing={0.5}>
+          <Stack direction="row" spacing={0.25}>
             {actions}
             {onEdit && editable && (
-              <IconButton size="small" onClick={() => onEdit(r)}>
-                <Edit fontSize="small" />
-              </IconButton>
+              <Tooltip title="Düzenle" arrow>
+                <IconButton
+                  size="small"
+                  onClick={() => onEdit(r)}
+                  sx={{
+                    color: 'text.secondary',
+                    transition: 'all 0.2s',
+                    '&:hover': { color: 'primary.main', bgcolor: 'rgba(225,29,42,0.1)' },
+                  }}
+                >
+                  <Edit fontSize="small" />
+                </IconButton>
+              </Tooltip>
             )}
             {onOpenMessages && (
-              <IconButton
-                size="small"
-                color="primary"
-                onClick={() => onOpenMessages(r.id)}
-                title="Mesajlar"
-              >
-                <Chat fontSize="small" />
-              </IconButton>
+              <Tooltip title="Mesajlar" arrow>
+                <IconButton
+                  size="small"
+                  onClick={() => onOpenMessages(r.id)}
+                  sx={{
+                    color: 'text.secondary',
+                    transition: 'all 0.2s',
+                    '&:hover': { color: 'primary.main', bgcolor: 'rgba(225,29,42,0.1)' },
+                  }}
+                >
+                  <Chat fontSize="small" />
+                </IconButton>
+              </Tooltip>
             )}
             {onCancel && cancelable && (
-              <IconButton
-                size="small"
-                color="error"
-                onClick={() => onCancel(r.id)}
-              >
-                <Cancel fontSize="small" />
-              </IconButton>
+              <Tooltip title="İptal Et" arrow>
+                <IconButton
+                  size="small"
+                  onClick={() => onCancel(r.id)}
+                  sx={{
+                    color: 'text.secondary',
+                    transition: 'all 0.2s',
+                    '&:hover': { color: 'error.main', bgcolor: 'rgba(248,113,113,0.1)' },
+                  }}
+                >
+                  <Cancel fontSize="small" />
+                </IconButton>
+              </Tooltip>
             )}
           </Stack>
         </Stack>
 
-        {/* Masalar */}
-        <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', gap: 1, mb: 1.5 }}>
+        {/* Masa Badges */}
+        <Box
+          sx={{
+            display: 'grid',
+            gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, minmax(0, max-content))' },
+            gap: 0.75,
+            mb: 2,
+          }}
+        >
           {r.tables.map(({ table }) => (
             <Box
               key={table.id}
               sx={{
-                display: 'flex',
+                display: 'grid',
+                gridTemplateColumns: '44px 1fr',
                 alignItems: 'center',
                 gap: 0.75,
-                bgcolor: 'action.hover',
-                borderRadius: 1,
-                px: 1,
+                width: 'fit-content',
+                minWidth: 218,
+                bgcolor: (theme) =>
+                  theme.palette.mode === 'dark'
+                    ? 'rgba(255,255,255,0.05)'
+                    : 'rgba(0,0,0,0.04)',
+                borderRadius: 1.5,
+                px: 1.25,
                 py: 0.5,
+                border: '1px solid',
+                borderColor: 'divider',
               }}
             >
-              <Typography variant="body2" sx={{ fontWeight: 800 }}>
+              <Typography
+                variant="body2"
+                sx={{ fontWeight: 800, fontSize: '0.8rem', textAlign: 'center' }}
+              >
                 #{table.number}
               </Typography>
               <CategoryBadge category={table.category} />
             </Box>
           ))}
-        </Stack>
+        </Box>
 
-        {/* Tarih */}
-        <Stack
-          direction="row"
-          spacing={1.5}
-          sx={{ alignItems: 'center', mb: 1 }}
+        {/* Date & Time - Info Grid */}
+        <Box
+          sx={{
+            display: 'grid',
+            gridTemplateColumns: { xs: '1fr', sm: '1fr auto auto' },
+            gap: 1.5,
+            alignItems: 'center',
+            mb: (r.notes || r.contact_phone) ? 2 : 0,
+            p: 1.25,
+            borderRadius: 1.5,
+            bgcolor: (theme) =>
+              theme.palette.mode === 'dark'
+                ? 'rgba(255,255,255,0.03)'
+                : 'rgba(0,0,0,0.02)',
+            border: '1px solid',
+            borderColor: 'divider',
+          }}
         >
-          <Event fontSize="small" sx={{ color: 'text.secondary' }} />
-          <Typography variant="body2" sx={{ fontWeight: 600 }}>
-            {formatRange(r.start_time, r.end_time)}
-          </Typography>
-        </Stack>
+          {/* Tarih */}
+          <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
+            <Event fontSize="small" sx={{ color: accentColor, fontSize: 18 }} />
+            <Typography variant="body2" sx={{ fontWeight: 600, fontSize: '0.82rem' }}>
+              {formatRange(r.start_time, r.end_time)}
+            </Typography>
+          </Stack>
 
-        {/* Süre + Tahmini Tutar */}
-        <Stack
-          direction="row"
-          spacing={2}
-          sx={{ alignItems: 'center', mb: (r.notes || r.contact_phone) ? 1.5 : 0 }}
-        >
+          {/* Süre */}
           <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center' }}>
-            <AccessTime fontSize="small" sx={{ color: 'text.secondary' }} />
-            <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+            <AccessTime sx={{ color: 'text.secondary', fontSize: 16 }} />
+            <Typography variant="body2" sx={{ color: 'text.secondary', fontWeight: 500, fontSize: '0.8rem' }}>
               {hours.toFixed(1)} saat
             </Typography>
           </Stack>
-          <Typography variant="body2" sx={{ color: 'primary.main', fontWeight: 700 }}>
-            {estimatedTotal} ₺ (tahmini)
-          </Typography>
-          {r.participants.length > 1 && (
-            <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center' }}>
-              <Group fontSize="small" sx={{ color: 'text.secondary' }} />
-              <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-                {r.participants.length} kişi
-              </Typography>
-            </Stack>
-          )}
-        </Stack>
+
+          {/* Fiyat + Katılımcılar */}
+          <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center' }}>
+            <Typography
+              variant="body2"
+              sx={{
+                color: 'primary.main',
+                fontWeight: 700,
+                fontSize: '0.85rem',
+              }}
+            >
+              {estimatedTotal} ₺
+            </Typography>
+            {r.participants.length > 1 && (
+              <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center' }}>
+                <Group sx={{ color: 'text.secondary', fontSize: 16 }} />
+                <Typography variant="body2" sx={{ color: 'text.secondary', fontSize: '0.8rem' }}>
+                  {r.participants.length} kişi
+                </Typography>
+              </Stack>
+            )}
+          </Stack>
+        </Box>
 
         {/* Notlar + Telefon */}
         {(r.notes || r.contact_phone) && (
           <>
-            <Divider sx={{ my: 1.5 }} />
-            <Stack spacing={0.5}>
+            <Divider sx={{ my: 1.5, borderColor: 'divider' }} />
+            <Stack spacing={0.75}>
               {r.contact_phone && (
-                <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 600 }}>
-                  📞 {r.contact_phone}
-                </Typography>
+                <Stack direction="row" spacing={0.75} sx={{ alignItems: 'center' }}>
+                  <Phone sx={{ color: 'text.secondary', fontSize: 15 }} />
+                  <Typography
+                    variant="caption"
+                    sx={{ color: 'text.secondary', fontWeight: 600, letterSpacing: '0.02em' }}
+                  >
+                    {r.contact_phone}
+                  </Typography>
+                </Stack>
               )}
               {r.notes && (
-                <Stack direction="row" spacing={1} sx={{ alignItems: 'flex-start' }}>
-                  <StickyNote2 fontSize="small" sx={{ color: 'text.secondary', mt: 0.25 }} />
-                  <Typography variant="body2" sx={{ color: 'text.secondary', fontStyle: 'italic' }}>
+                <Stack direction="row" spacing={0.75} sx={{ alignItems: 'flex-start' }}>
+                  <StickyNote2 sx={{ color: 'text.secondary', mt: 0.25, fontSize: 15 }} />
+                  <Typography
+                    variant="body2"
+                    sx={{
+                      color: 'text.secondary',
+                      fontStyle: 'italic',
+                      fontSize: '0.8rem',
+                      lineHeight: 1.5,
+                    }}
+                  >
                     {r.notes}
                   </Typography>
                 </Stack>
@@ -246,11 +354,17 @@ export default function ReservationCard({
           </>
         )}
 
-        {/* Owner (admin) */}
+        {/* Owner (admin view) */}
         {showOwner && r.owner && (
           <Typography
             variant="caption"
-            sx={{ color: 'text.secondary', display: 'block', mt: 1.5 }}
+            sx={{
+              color: 'text.secondary',
+              display: 'block',
+              mt: 1.5,
+              fontWeight: 500,
+              letterSpacing: '0.01em',
+            }}
           >
             Sahibi: {r.owner.full_name || r.owner.email}
           </Typography>

@@ -1,15 +1,18 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { Box, IconButton, Paper, TextField, Typography, CircularProgress, Alert } from '@mui/material';
+import { Box, TextField, IconButton, Typography, CircularProgress, Alert, Paper, Stack, Chip, Collapse, Button } from '@mui/material';
 import { Send } from '@mui/icons-material';
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/components/AuthProvider';
+import ReservationDetails from '@/components/admin/ReservationDetails';
+import { RESERVATION_COLOR, RESERVATION_LABEL, ReservationStatus } from '@/lib/categories';
 
 interface MessageRow {
   id: string;
   conversation_id: string;
   sender_id: string;
+  is_read: boolean;
   content: string;
   created_at: string;
 }
@@ -20,15 +23,18 @@ interface Props {
 }
 
 export default function ChatPanel({ reservationId, header }: Props) {
-  const { user } = useAuth();
+  const { user, role } = useAuth();
   const supabase = createClient();
   const [conversationId, setConversationId] = useState<string | null>(null);
+  const [reservation, setReservation] = useState<any>(null);
+  const [detailsOpen, setDetailsOpen] = useState(false);
   const [messages, setMessages] = useState<MessageRow[]>([]);
   const [content, setContent] = useState('');
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState('');
   const scrollRef = useRef<HTMLDivElement>(null);
+  const reservationStatus = reservation?.status as ReservationStatus | undefined;
 
   const load = async () => {
     setLoading(true);
@@ -38,6 +44,7 @@ export default function ChatPanel({ reservationId, header }: Props) {
       if (!res.ok) throw new Error(data.error || 'Yüklenemedi');
       setConversationId(data.conversationId);
       setMessages(data.messages);
+      setReservation(data.reservation);
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -100,8 +107,45 @@ export default function ChatPanel({ reservationId, header }: Props) {
   };
 
   return (
-    <Paper sx={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 400 }}>
+    <Paper
+      elevation={0}
+      sx={{
+        display: 'flex',
+        flexDirection: 'column',
+        height: '100%',
+        minHeight: 400,
+        bgcolor: 'background.paper',
+        backgroundImage: 'none',
+      }}
+    >
       {header}
+
+      {reservation && (
+        <Paper elevation={0} sx={{ p: 2, m: 2, mb: 0, bgcolor: 'action.hover', border: '1px solid', borderColor: 'divider', borderRadius: 2, display: 'flex', flexDirection: 'column', gap: 1 }}>
+          <Stack direction="row" sx={{ alignItems: 'center', justifyContent: 'space-between' }}>
+            <Typography variant="subtitle2" sx={{ fontWeight: 800 }}>
+              Kişi: {reservation.owner?.full_name || 'Bilinmiyor'} {reservation.owner?.email ? `(${reservation.owner.email})` : ''}
+            </Typography>
+            <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
+              <Chip
+                size="small"
+                label={reservationStatus ? RESERVATION_LABEL[reservationStatus] : reservation.status}
+                color={reservationStatus ? RESERVATION_COLOR[reservationStatus] : 'default'}
+              />
+              <Button size="small" variant="outlined" color="inherit" onClick={() => setDetailsOpen(!detailsOpen)}>
+                {detailsOpen ? 'Gizle' : 'Detaylar'}
+              </Button>
+            </Stack>
+          </Stack>
+          
+          <Collapse in={detailsOpen}>
+            <Box sx={{ mt: 1, pt: 1, borderTop: '1px dashed', borderColor: 'divider' }}>
+              <ReservationDetails reservation={reservation} isAdmin={role === 'admin'} />
+            </Box>
+          </Collapse>
+        </Paper>
+      )}
+
       {error && <Alert severity="error" onClose={() => setError('')} sx={{ m: 2 }}>{error}</Alert>}
 
       <Box ref={scrollRef} sx={{ flex: 1, overflowY: 'auto', p: 2, display: 'flex', flexDirection: 'column', gap: 1 }}>
