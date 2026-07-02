@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useMemo, useState, useRef } from 'react';
-import { Box, Paper, Stack, Tooltip, Typography, useTheme, useMediaQuery, AppBar, Toolbar, IconButton, ButtonBase, Snackbar, Alert, Button } from '@mui/material';
+import { Box, Paper, Stack, Tooltip, Typography, useTheme, useMediaQuery, AppBar, Toolbar, IconButton, ButtonBase, Snackbar, Alert, Button, Dialog } from '@mui/material';
 import { ArrowBack, ArrowForward, TableRestaurant, GridView, Map as MapIcon, KeyboardArrowUp, KeyboardArrowDown, KeyboardArrowLeft, KeyboardArrowRight } from '@mui/icons-material';
 import { useColorScheme } from '@mui/material/styles';
 import { CafeTable, RoomLite } from './TableCard';
@@ -267,7 +267,7 @@ export default function RoomLayout({ tables, selectedIds, onClickTable, disabled
     }
     
     return (
-      <Box sx={{ position: 'fixed', inset: 0, zIndex: 1200, bgcolor: 'background.default', display: 'flex', flexDirection: 'column' }}>
+      <Dialog fullScreen open={true} sx={{ zIndex: 1200, '& .MuiDialog-paper': { bgcolor: 'background.default', display: 'flex', flexDirection: 'column' } }}>
         <AppBar position="static" elevation={0} sx={{ bgcolor: 'background.paper', borderBottom: 1, borderColor: 'divider' }}>
           <Toolbar>
             <IconButton edge="start" onClick={() => { setSelectedMobileRoomId(null); setMobileViewMode('LIST'); }} sx={{ mr: 2 }}>
@@ -281,7 +281,7 @@ export default function RoomLayout({ tables, selectedIds, onClickTable, disabled
             </IconButton>
           </Toolbar>
         </AppBar>
-        <Box sx={{ flexGrow: 1, position: 'relative', overflow: 'hidden' }}>
+        <Box sx={{ flexGrow: 1, position: 'relative', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
           {mobileViewMode === 'MAP' ? (
             <>
               <Box 
@@ -319,7 +319,7 @@ export default function RoomLayout({ tables, selectedIds, onClickTable, disabled
               </Box>
             </>
           ) : (
-            <Box sx={{ width: '100%', height: '100%', overflow: 'auto', p: 2, pb: 14, display: 'flex', flexDirection: 'column', justifyContent: 'safe center' }}>
+            <Box sx={{ flexGrow: 1, overflow: 'auto', p: 2, pb: 14 }}>
               <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, justifyContent: 'center' }}>
                 {group.tables.map(t => (
                   <TableTile
@@ -359,7 +359,41 @@ export default function RoomLayout({ tables, selectedIds, onClickTable, disabled
             Masaların kafedeki gerçek dizilimini (yan yana, karşılıklı vb.) görmek için sağ üstteki ikona tıklayabilirsiniz.
           </Alert>
         </Snackbar>
-      </Box>
+
+        {selectedIds && selectedIds.size > 0 && (
+          <Paper
+            elevation={4}
+            sx={{
+              position: 'absolute',
+              bottom: 16,
+              left: 16,
+              right: 16,
+              zIndex: 1300,
+              p: 1.5,
+              borderRadius: 2,
+              border: '1.5px solid',
+              borderColor: 'primary.main',
+              bgcolor: 'background.paper',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              boxShadow: '0 8px 32px rgba(0,0,0,0.3)',
+            }}
+          >
+            <Typography variant="body2" sx={{ fontWeight: 800 }}>
+              {selectedIds.size} Masa Seçili
+            </Typography>
+            <Button 
+              size="small" 
+              variant="contained" 
+              onClick={() => { setSelectedMobileRoomId(null); setMobileViewMode('LIST'); }}
+              sx={{ fontWeight: 700, borderRadius: 2 }}
+            >
+              Devam Et
+            </Button>
+          </Paper>
+        )}
+      </Dialog>
     );
   }
 

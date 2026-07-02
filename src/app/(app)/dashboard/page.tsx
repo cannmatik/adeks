@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { Box, Button, Chip, Stack, Typography, Alert, CircularProgress, Paper, TextField, Collapse, IconButton, Stepper, Step, StepLabel, StepContent, FormControl, InputLabel, Select, MenuItem } from '@mui/material';
+import { Box, Button, Chip, Stack, Typography, Alert, CircularProgress, Paper, TextField, Collapse, IconButton, Stepper, Step, StepLabel, StepContent, FormControl, InputLabel, Select, MenuItem, Portal } from '@mui/material';
 import { EventAvailable, Clear, DateRange, Search, TouchApp, ExpandLess, ExpandMore, CheckCircle, RocketLaunch, Send } from '@mui/icons-material';
 import { CafeTable } from '@/components/tables/TableCard';
 import RoomLayout from '@/components/tables/RoomLayout';
@@ -394,8 +394,9 @@ export default function DashboardPage() {
                 )}
 
                 {/* Yapışkan Alt Bar (Sadece 2. adımdayken masa seçilmişse göster) */}
-                {selectedTables.length > 0 && (
-                  <Paper
+                {selectedTables.length > 0 && activeStep === 1 && (
+                  <Portal>
+                    <Paper
                     elevation={4}
                     sx={{
                       position: { xs: 'fixed', md: 'sticky' },
@@ -458,7 +459,8 @@ export default function DashboardPage() {
                         </Button>
                       </Box>
                     </Collapse>
-                  </Paper>
+                    </Paper>
+                  </Portal>
                 )}
               </Box>
             </StepContent>
