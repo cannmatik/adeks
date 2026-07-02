@@ -53,16 +53,28 @@ export default function LoginPage() {
     }
   };
 
-  const handleResendOtp = async () => {
+  const handleResendOtp = async (emailToResend?: string) => {
+    const emailTarget = typeof emailToResend === 'string' ? emailToResend : otpEmail;
     const res = await fetch('/api/auth/resend-otp', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: otpEmail }),
+      body: JSON.stringify({ email: emailTarget }),
     });
 
     if (!res.ok) {
       const data = await res.json();
       throw new Error(data.error || 'Kod gönderilemedi');
+    }
+  };
+
+  const handleUnverifiedEmail = async (email: string, password: string) => {
+    setOtpEmail(email);
+    setOtpPassword(password);
+    setShowOtpDialog(true);
+    try {
+      await handleResendOtp(email);
+    } catch (err: any) {
+      console.error("Resend error on login:", err);
     }
   };
 
@@ -77,7 +89,10 @@ export default function LoginPage() {
   return (
     <AuthLayout>
       {mode === 'login' ? (
-        <LoginForm onSwitchToRegister={() => setMode('register')} />
+        <LoginForm 
+          onSwitchToRegister={() => setMode('register')} 
+          onUnverifiedEmail={handleUnverifiedEmail}
+        />
       ) : (
         <RegisterForm
           onSwitchToLogin={() => setMode('login')}

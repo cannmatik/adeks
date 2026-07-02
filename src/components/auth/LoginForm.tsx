@@ -16,9 +16,10 @@ import { Visibility, VisibilityOff } from '@mui/icons-material';
 
 interface LoginFormProps {
   onSwitchToRegister: () => void;
+  onUnverifiedEmail?: (email: string, password: string) => void;
 }
 
-export default function LoginForm({ onSwitchToRegister }: LoginFormProps) {
+export default function LoginForm({ onSwitchToRegister, onUnverifiedEmail }: LoginFormProps) {
   const router = useRouter();
   const supabase = createClient();
 
@@ -44,6 +45,12 @@ export default function LoginForm({ onSwitchToRegister }: LoginFormProps) {
 
     if (signInError || !signInData.user) {
       setLoading(false);
+      
+      if (signInError?.message === 'Email not confirmed' && onUnverifiedEmail) {
+        onUnverifiedEmail(email, password);
+        return;
+      }
+      
       setError(
         signInError?.message === 'Invalid login credentials'
           ? 'E-posta veya şifre hatalı'

@@ -21,21 +21,30 @@ export default function RegisterForm({ onSwitchToLogin, onRegisterSuccess }: Reg
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [adeksMemberNo, setAdeksMemberNo] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const handleRegister = async () => {
+  const handleRegister = async (e?: React.FormEvent) => {
+    e?.preventDefault();
     setError('');
-    if (!email || !password || !fullName) {
-      setError('Ad soyad, e-posta ve şifre zorunludur');
+    
+    if (!email || !password || !confirmPassword || !fullName) {
+      setError('Ad soyad, e-posta, şifre ve şifre tekrarı zorunludur');
       return;
     }
     if (password.length < 6) {
       setError('Şifre en az 6 karakter olmalıdır');
       return;
     }
+    if (password !== confirmPassword) {
+      setError('Şifreler birbiriyle eşleşmiyor');
+      return;
+    }
+    
     setLoading(true);
 
     try {
@@ -64,7 +73,7 @@ export default function RegisterForm({ onSwitchToLogin, onRegisterSuccess }: Reg
   const shrinkProps = { inputLabel: { shrink: true } };
 
   return (
-    <>
+    <form onSubmit={handleRegister}>
       <Fade in={!!error}>
         <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>
       </Fade>
@@ -119,13 +128,37 @@ export default function RegisterForm({ onSwitchToLogin, onRegisterSuccess }: Reg
             },
           }}
         />
+        <TextField
+          label="Şifre Tekrarı"
+          type={showConfirmPassword ? 'text' : 'password'}
+          fullWidth
+          size="small"
+          value={confirmPassword}
+          onChange={(e) => setConfirmPassword(e.target.value)}
+          slotProps={{
+            inputLabel: { shrink: true },
+            input: {
+              endAdornment: (
+                <InputAdornment position="end">
+                  <IconButton
+                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                    edge="end"
+                    sx={{ color: 'text.secondary' }}
+                  >
+                    {showConfirmPassword ? <Visibility /> : <VisibilityOff />}
+                  </IconButton>
+                </InputAdornment>
+              ),
+            },
+          }}
+        />
       </Box>
 
       <Button
+        type="submit"
         fullWidth
         variant="contained"
         size="large"
-        onClick={handleRegister}
         disabled={loading}
         sx={{ mt: 2, py: 1.5 }}
       >
@@ -137,6 +170,6 @@ export default function RegisterForm({ onSwitchToLogin, onRegisterSuccess }: Reg
           Zaten hesabınız var mı? Giriş yapın
         </Button>
       </Box>
-    </>
+    </form>
   );
 }
