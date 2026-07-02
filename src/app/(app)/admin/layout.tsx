@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
+import AdminNotificationListener from '@/components/admin/AdminNotificationListener';
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient();
@@ -16,5 +17,10 @@ export default async function AdminLayout({ children }: { children: React.ReactN
 
   if (profile?.role !== 'admin') redirect('/dashboard');
 
-  return <>{children}</>;
+  return (
+    <>
+      <AdminNotificationListener />
+      {children}
+    </>
+  );
 }

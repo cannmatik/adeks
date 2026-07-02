@@ -29,3 +29,13 @@ a {
 ::-webkit-scrollbar-thumb:hover {
   background: rgba(128, 128, 128, 0.45);
 }
+
+/* Chrome Autofill fix — dark mode */
+.dark input:-webkit-autofill,
+.dark input:-webkit-autofill:hover,
+.dark input:-webkit-autofill:focus,
+.dark input:-webkit-autofill:active {
+  -webkit-box-shadow: 0 0 0 1000px #1B1B1F inset !important;
+  -webkit-text-fill-color: #F5F5F7 !important;
+  caret-color: #F5F5F7 !important;
+}

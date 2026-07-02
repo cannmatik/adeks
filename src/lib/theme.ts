@@ -82,9 +82,11 @@ export const theme = createTheme({
     MuiCssBaseline: {
       styleOverrides: {
         body: {
-          backgroundImage:
-            'radial-gradient(1200px 600px at 50% -100px, rgba(225,29,42,0.10), transparent), radial-gradient(900px 500px at 100% 0%, rgba(225,29,42,0.05), transparent)',
           backgroundAttachment: 'fixed',
+        },
+        'input:-webkit-autofill, input:-webkit-autofill:hover, input:-webkit-autofill:focus, input:-webkit-autofill:active': {
+          transition: 'background-color 5000s ease-in-out 0s !important',
+          WebkitTextFillColor: 'var(--mui-palette-text-primary) !important',
         },
       },
     },
@@ -121,11 +123,11 @@ export const theme = createTheme({
           fontWeight: 700,
           textTransform: 'none',
           ...(ownerState.variant === 'contained' && ownerState.color === 'primary' && {
-            background: `linear-gradient(135deg, ${brand.red} 0%, ${brand.redDeep} 100%)`,
+            background: brand.red,
             color: '#FFFFFF',
             '&:hover': {
               boxShadow: '0 8px 24px rgba(225,29,42,0.45)',
-              background: `linear-gradient(135deg, ${brand.redSoft} 0%, ${brand.red} 100%)`,
+              background: brand.redSoft,
             },
           }),
           ...(ownerState.variant === 'outlined' && {
@@ -133,6 +135,16 @@ export const theme = createTheme({
             '&:hover': { borderWidth: 1.5 },
           }),
         }),
+      },
+    },
+    MuiInputBase: {
+      styleOverrides: {
+        input: {
+          '&:-webkit-autofill': {
+            transition: 'background-color 5000s ease-in-out 0s !important',
+            WebkitTextFillColor: 'inherit !important',
+          },
+        },
       },
     },
     MuiTextField: {

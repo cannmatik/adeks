@@ -38,26 +38,21 @@ export default function AuthLayout({ children }: AuthLayoutProps) {
             </Box>
             <Box sx={{ textAlign: 'center', mb: 3 }}>
               <Box
-                sx={{
-                  width: 64,
-                  height: 64,
-                  borderRadius: '50%',
-                  border: 2,
-                  borderColor: 'primary.main',
-                  display: 'flex',
+                sx={(theme) => ({
+                  bgcolor: '#000',
+                  ...theme.applyStyles('dark', { bgcolor: 'transparent' }),
+                  borderRadius: 2,
+                  p: 2,
+                  display: 'inline-flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  mx: 'auto',
                   mb: 2,
-                }}
+                })}
               >
-                <SportsEsports sx={{ color: 'primary.main', fontSize: 32 }} />
+                <img src="/adeks.png" alt="ADEKS" style={{ height: 48, objectFit: 'contain' }} />
               </Box>
-              <Typography variant="h4" sx={{ mb: 0.5, fontFamily: '"Montserrat",sans-serif', fontWeight: 700, letterSpacing: '0.1em' }}>
-                ADEKS
-              </Typography>
-              <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-                İnternet Kafe — masa rezervasyonu ve canlı destek
+              <Typography variant="body2" sx={{ color: 'text.secondary', fontWeight: 500 }}>
+                Çalışma Saatleri: 07:30 - 02:00
               </Typography>
             </Box>
 
@@ -65,7 +60,7 @@ export default function AuthLayout({ children }: AuthLayoutProps) {
 
             <Box sx={{ mt: 2, textAlign: 'center' }}>
               <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                Güvenli e-posta doğrulama · Hızlı rezervasyon · Canlı mesajlaşma
+                Adeks İnternet Kafe Online Rezervasyon
               </Typography>
             </Box>
           </CardContent>

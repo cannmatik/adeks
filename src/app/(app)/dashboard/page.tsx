@@ -1,8 +1,8 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Box, Button, Chip, Stack, Typography, Alert, CircularProgress, Paper, TextField, Dialog, DialogTitle, DialogContent, DialogActions } from '@mui/material';
-import { EventAvailable, Clear } from '@mui/icons-material';
+import { Box, Button, Chip, Stack, Typography, Alert, CircularProgress, Paper, TextField, Dialog, DialogTitle, DialogContent, DialogActions, Collapse, IconButton } from '@mui/material';
+import { EventAvailable, Clear, DateRange, Search, TouchApp, ExpandLess, ExpandMore } from '@mui/icons-material';
 import { CafeTable } from '@/components/tables/TableCard';
 import RoomLayout from '@/components/tables/RoomLayout';
 import { TableCategory } from '@/lib/categories';
@@ -17,10 +17,10 @@ import { DateTimePicker } from '@mui/x-date-pickers/DateTimePicker';
 dayjs.locale('tr');
 
 function defaultStart() {
-  return dayjs().second(0).millisecond(0);
+  return dayjs().add(1, 'hour').second(0).millisecond(0);
 }
 function defaultEnd() {
-  return dayjs().add(30, 'minute').second(0).millisecond(0);
+  return dayjs().add(1, 'hour').add(1, 'hour').second(0).millisecond(0);
 }
 
 export default function DashboardPage() {
@@ -40,6 +40,7 @@ export default function DashboardPage() {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [confirmNotes, setConfirmNotes] = useState('');
   const [confirmPhone, setConfirmPhone] = useState('');
+  const [basketExpanded, setBasketExpanded] = useState(true);
 
   const startRef = useRef(start);
   const endRef = useRef(end);
@@ -50,7 +51,7 @@ export default function DashboardPage() {
     setLoading(true);
     setError('');
     setSuccess('');
-    setSelectedIds(new Set());
+    // Remove unconditional clear to preserve user selection on auto-refresh
     try {
       const url = new URL('/api/tables/status', window.location.origin);
       url.searchParams.set('start', startRef.current.toISOString());
@@ -59,6 +60,19 @@ export default function DashboardPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Yüklenemedi');
       setTables(data.tables);
+
+      // Clean up selectedIds: keep them only if they are still available
+      setSelectedIds(prev => {
+        if (prev.size === 0) return prev;
+        const next = new Set(prev);
+        for (const id of next) {
+          const t = data.tables.find((table: CafeTable) => table.id === id);
+          if (!t || t.booking_status !== 'AVAILABLE' || t.status === 'MAINTENANCE') {
+            next.delete(id);
+          }
+        }
+        return next;
+      });
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -84,6 +98,13 @@ export default function DashboardPage() {
     () => selectedTables.reduce((sum, t) => sum + (categoryMeta[t.category]?.defaultRate ?? 0), 0),
     [selectedTables, categoryMeta],
   );
+
+  const estimatedTotal = useMemo(() => {
+    if (!start || !end || !start.isValid() || !end.isValid()) return 0;
+    const diffMs = end.diff(start);
+    const durationHours = Math.max(0, diffMs / (1000 * 60 * 60));
+    return totalRate * durationHours;
+  }, [start, end, totalRate]);
 
   const handleReserveClick = () => {
     if (selectedTables.length === 0) return;
@@ -139,11 +160,40 @@ export default function DashboardPage() {
 
   return (
     <Box>
-      <Box sx={{ mb: 3 }}>
-        <Typography variant="h4" sx={{ mb: 0.5, fontSize: { xs: '1.5rem', md: '2.125rem' } }}>Salon Düzeni</Typography>
-        <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-          Tarih aralığı seç ve müsait masaları gör — çoklu seçim yaparak rezervasyon oluştur.
-        </Typography>
+      <Box sx={{ mb: 4 }}>
+        <Typography variant="h4" sx={{ mb: 2, fontSize: { xs: '1.5rem', md: '2.125rem' }, fontWeight: 800 }}>Salon Düzeni</Typography>
+        
+        <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
+          <Paper elevation={0} sx={{ p: 2, flex: 1, borderRadius: 3, border: '1px solid', borderColor: 'divider', display: 'flex', alignItems: 'flex-start', gap: 1.5, bgcolor: 'background.default' }}>
+            <Box sx={{ bgcolor: 'primary.main', color: 'primary.contrastText', p: 1, borderRadius: 2, display: 'flex' }}>
+              <DateRange fontSize="small" />
+            </Box>
+            <Box>
+              <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 0.5 }}>1. Tarih ve Saat</Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.85rem' }}>Rezervasyon yapmak istediğiniz tarih ve saat aralığını seçin.</Typography>
+            </Box>
+          </Paper>
+
+          <Paper elevation={0} sx={{ p: 2, flex: 1, borderRadius: 3, border: '1px solid', borderColor: 'divider', display: 'flex', alignItems: 'flex-start', gap: 1.5, bgcolor: 'background.default' }}>
+            <Box sx={{ bgcolor: 'primary.main', color: 'primary.contrastText', p: 1, borderRadius: 2, display: 'flex' }}>
+              <Search fontSize="small" />
+            </Box>
+            <Box>
+              <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 0.5 }}>2. Müsaitlik Durumu</Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.85rem' }}>Müsaitlik Durumu butonuna tıklayarak o saatlerdeki boş masaları kontrol edin.</Typography>
+            </Box>
+          </Paper>
+
+          <Paper elevation={0} sx={{ p: 2, flex: 1, borderRadius: 3, border: '1px solid', borderColor: 'divider', display: 'flex', alignItems: 'flex-start', gap: 1.5, bgcolor: 'background.default' }}>
+            <Box sx={{ bgcolor: 'primary.main', color: 'primary.contrastText', p: 1, borderRadius: 2, display: 'flex' }}>
+              <TouchApp fontSize="small" />
+            </Box>
+            <Box>
+              <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 0.5 }}>3. Seçim ve Onay</Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.85rem' }}>İstediğiniz masaları seçin ve rezervasyon yap butonuna basın.</Typography>
+            </Box>
+          </Paper>
+        </Stack>
       </Box>
 
       {/* Tarih seçimi */}
@@ -153,15 +203,16 @@ export default function DashboardPage() {
             <DateTimePicker
               label="Başlangıç"
               value={start}
+              minDateTime={dayjs().add(1, 'hour').second(0).millisecond(0)}
               onChange={(newValue) => {
                 setStart(newValue as Dayjs);
                 if (newValue && newValue.isValid()) {
-                  let duration = 30 * 60 * 1000;
+                  let duration = 60 * 60 * 1000; // 1 hour min
                   if (start && start.isValid() && end && end.isValid()) {
                     duration = end.diff(start);
                   }
-                  if (isNaN(duration) || duration < 30 * 60 * 1000) {
-                    duration = 30 * 60 * 1000;
+                  if (isNaN(duration) || duration < 60 * 60 * 1000) {
+                    duration = 60 * 60 * 1000;
                   }
                   setEnd(newValue.add(duration, 'millisecond'));
                 }
@@ -171,7 +222,7 @@ export default function DashboardPage() {
             <DateTimePicker
               label="Bitiş"
               value={end}
-              minDateTime={start && start.isValid() ? start.add(30, 'minute') : undefined}
+              minDateTime={start && start.isValid() ? start.add(1, 'hour') : undefined}
               onChange={(newValue) => {
                 setEnd(newValue as Dayjs);
               }}
@@ -226,42 +277,61 @@ export default function DashboardPage() {
 
           {selectedTables.length > 0 && (
             <Paper
-              elevation={0}
+              elevation={4}
               sx={{
-                mb: 2,
+                position: { xs: 'fixed', md: 'static' },
+                bottom: { xs: 16, md: 'auto' },
+                left: { xs: 16, md: 'auto' },
+                right: { xs: 16, md: 'auto' },
+                zIndex: { xs: 1300, md: 1 },
+                mb: { xs: 0, md: 2 },
                 p: 1.5,
                 borderRadius: 2,
                 border: '1.5px solid',
                 borderColor: 'primary.main',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                gap: 1.5,
-                flexWrap: 'wrap',
+                bgcolor: 'background.paper',
+                boxShadow: { xs: '0 8px 32px rgba(0,0,0,0.2)', md: 'none' },
               }}
             >
-              <Stack direction="row" spacing={1} sx={{ alignItems: 'center', flexWrap: 'wrap' }}>
-                <Typography variant="body2" sx={{ fontWeight: 700 }}>
-                  Seçili:
+              <Stack direction="row" sx={{ alignItems: 'center', justifyContent: 'space-between', cursor: { xs: 'pointer', md: 'default' } }} onClick={() => setBasketExpanded(!basketExpanded)}>
+                <Typography variant="body2" sx={{ fontWeight: 800, display: 'flex', alignItems: 'center', gap: 1 }}>
+                  {selectedTables.length} Masa Seçili
+                  <Typography component="span" variant="caption" color="text.secondary">
+                    ({totalRate.toFixed(0)} ₺/saat)
+                  </Typography>
                 </Typography>
-                {selectedTables.map((t) => (
-                  <Chip
-                    key={t.id}
-                    label={`#${t.number}`}
-                    size="small"
-                    onDelete={() => toggleTable(t)}
-                    sx={{ fontWeight: 700 }}
-                  />
-                ))}
+                <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
+                  <Button size="small" variant="contained" onClick={(e) => { e.stopPropagation(); handleReserveClick(); }} disabled={submitting}>
+                    Devam Et
+                  </Button>
+                  <IconButton size="small" sx={{ display: { md: 'none' } }}>
+                    {basketExpanded ? <ExpandMore /> : <ExpandLess />}
+                  </IconButton>
+                </Stack>
               </Stack>
-              <Stack direction="row" spacing={1}>
-                <Button size="small" variant="outlined" startIcon={<Clear />} onClick={clearSelection}>
-                  Temizle
-                </Button>
-                <Button size="small" variant="contained" onClick={handleReserveClick} disabled={submitting}>
-                  Rezervasyon Yap
-                </Button>
-              </Stack>
+
+              {/* Açılır Kapanır Detay Kısmı */}
+              <Collapse in={basketExpanded} sx={{ width: '100%' }}>
+                <Box sx={{ mt: 2, pt: 2, borderTop: '1px solid', borderColor: 'divider', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 1.5 }}>
+                  <Stack direction="row" spacing={1} sx={{ alignItems: 'center', flexWrap: 'wrap' }}>
+                    <Typography variant="body2" sx={{ fontWeight: 700 }}>
+                      Seçili:
+                    </Typography>
+                    {selectedTables.map((t) => (
+                      <Chip
+                        key={t.id}
+                        label={`#${t.number}`}
+                        size="small"
+                        onDelete={() => toggleTable(t)}
+                        sx={{ fontWeight: 700 }}
+                      />
+                    ))}
+                  </Stack>
+                  <Button size="small" variant="outlined" startIcon={<Clear />} onClick={clearSelection}>
+                    Temizle
+                  </Button>
+                </Box>
+              </Collapse>
             </Paper>
           )}
         </>
@@ -283,7 +353,7 @@ export default function DashboardPage() {
         <DialogContent>
           <Stack spacing={2}>
             <Alert severity="info">
-              Rezervasyonunuz <b>HOLD</b> (bekleme) durumunda oluşturulacak. Admin onayından sonra aktif hale gelecektir.
+              Rezervasyon talebiniz yönetici onayına gönderilecektir. Onaylandıktan sonra kesinleşecektir.
             </Alert>
 
             <Box>
@@ -303,10 +373,15 @@ export default function DashboardPage() {
             </Box>
 
             <Box>
-              <Typography variant="body2" sx={{ color: 'text.secondary', mb: 0.5 }}>Toplam Ücret</Typography>
-              <Typography variant="h6" sx={{ fontWeight: 700, color: 'primary.main' }}>
-                {totalRate.toFixed(0)} ₺/saat
-              </Typography>
+              <Typography variant="body2" sx={{ color: 'text.secondary', mb: 0.5 }}>Tahmini Ücret</Typography>
+              <Stack direction="row" sx={{ alignItems: 'baseline' }} spacing={1}>
+                <Typography variant="h6" sx={{ fontWeight: 800, color: 'primary.main' }}>
+                  {estimatedTotal.toFixed(0)} ₺
+                </Typography>
+                <Typography variant="body2" sx={{ color: 'text.secondary', fontWeight: 600 }}>
+                  ({totalRate.toFixed(0)} ₺ / saat)
+                </Typography>
+              </Stack>
             </Box>
 
             <TextField

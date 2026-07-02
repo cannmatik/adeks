@@ -29,20 +29,9 @@ export default function LandingNavbar() {
       <Container maxWidth="lg">
         <Toolbar sx={{ px: { xs: 0 } }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexGrow: 1 }}>
-            <SportsEsports sx={{ color: 'primary.main', fontSize: 28 }} />
-            <Typography
-              variant="h6"
-              sx={{
-                fontWeight: 800,
-                letterSpacing: '0.15em',
-                fontSize: 20,
-                background: 'linear-gradient(135deg, #F5F5F7 0%, #E11D2A 100%)',
-                WebkitBackgroundClip: 'text',
-                WebkitTextFillColor: 'transparent',
-              }}
-            >
-              ADEKS
-            </Typography>
+            <Box sx={(theme) => ({ bgcolor: '#000', ...theme.applyStyles('dark', { bgcolor: 'transparent' }), p: 0.5, borderRadius: 1.5, display: 'flex' })}>
+              <img src="/adeks.png" alt="ADEKS" style={{ height: 28, objectFit: 'contain' }} />
+            </Box>
           </Box>
 
           {/* Desktop nav */}

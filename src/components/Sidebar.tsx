@@ -118,11 +118,10 @@ export default function Sidebar({ mobileOpen = false, onMobileClose, variant = '
 
   const drawerContent = (
     <>
-      <Toolbar sx={{ px: 2, gap: 1.5 }}>
-        <SportsEsports sx={{ color: 'primary.main' }} />
-        <Typography variant="h6" sx={{ fontWeight: 700, letterSpacing: '0.1em' }}>
-          ADEKS
-        </Typography>
+      <Toolbar sx={{ px: 2, py: 1 }}>
+        <Box sx={(theme) => ({ bgcolor: '#000', ...theme.applyStyles('dark', { bgcolor: 'transparent' }), borderRadius: 1.5, p: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%' })}>
+          <img src="/adeks.png" alt="ADEKS" style={{ height: 32, objectFit: 'contain' }} />
+        </Box>
         {variant === 'temporary' && (
           <IconButton onClick={onMobileClose} sx={{ ml: 'auto' }}>
             <Close />

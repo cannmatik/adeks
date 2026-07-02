@@ -1,8 +1,8 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import React, { useMemo, useState, useRef } from 'react';
 import { Box, Paper, Stack, Tooltip, Typography, useTheme, useMediaQuery, AppBar, Toolbar, IconButton, ButtonBase } from '@mui/material';
-import { ArrowBack, ArrowForward, TableRestaurant } from '@mui/icons-material';
+import { ArrowBack, ArrowForward, TableRestaurant, GridView, Map as MapIcon, KeyboardArrowUp, KeyboardArrowDown, KeyboardArrowLeft, KeyboardArrowRight } from '@mui/icons-material';
 import { useColorScheme } from '@mui/material/styles';
 import { CafeTable, RoomLite } from './TableCard';
 import { useCategories } from '@/components/CategoryProvider';
@@ -108,6 +108,14 @@ export default function RoomLayout({ tables, selectedIds, onClickTable, disabled
   }, [byFloor]);
 
   const [selectedMobileRoomId, setSelectedMobileRoomId] = useState<string | null>(null);
+  const [mobileViewMode, setMobileViewMode] = useState<'MAP' | 'LIST'>('MAP'); // User seems to prefer map
+
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const scrollMap = (dx: number, dy: number) => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollBy({ left: dx, top: dy, behavior: 'smooth' });
+    }
+  };
 
   if (groups.length === 0) return null;
 
@@ -119,8 +127,16 @@ export default function RoomLayout({ tables, selectedIds, onClickTable, disabled
 
     const gridW = Math.max(g.room.col_span ?? 8, 1, ...g.tables.map((t) => t.position_x + 1));
     const gridH = Math.max(g.room.row_span ?? 5, 1, ...g.tables.map((t) => t.position_y + 1));
-    const innerW = gridW * CELL;
-    const innerH = gridH * CELL;
+    
+    // Auto-transpose to ensure it's vertical on mobile
+    const isHorizontal = gridW > gridH;
+    const shouldTranspose = isMobile && isHorizontal;
+    
+    const displayW = shouldTranspose ? gridH : gridW;
+    const displayH = shouldTranspose ? gridW : gridH;
+
+    const innerW = displayW * CELL;
+    const innerH = displayH * CELL;
 
     return (
       <Paper
@@ -152,7 +168,7 @@ export default function RoomLayout({ tables, selectedIds, onClickTable, disabled
             height: 28,
             display: 'flex',
             alignItems: 'center',
-            px: gridW < 3 ? 0.6 : 1.5,
+            px: displayW < 3 ? 0.6 : 1.5,
             borderBottom: `1px solid ${accent}15`,
             bgcolor: isDark ? `${accent}08` : `${accent}06`,
             flexShrink: 0,
@@ -182,7 +198,7 @@ export default function RoomLayout({ tables, selectedIds, onClickTable, disabled
           >
             {sectionLabel}
           </Typography>
-          {gridW >= 3 && (
+          {displayW >= 3 && (
             <Stack
               direction="row"
               spacing={0.3}
@@ -215,23 +231,27 @@ export default function RoomLayout({ tables, selectedIds, onClickTable, disabled
             flexGrow: 1,
           }}
         >
-          {g.tables.map((t) => (
-            <TableTile
-              key={t.id}
-              table={t}
-              selected={!!selectedIds?.has(t.id)}
-              disabled={!!disabledIds?.has(t.id)}
-              onClick={onClickTable}
-              isDark={isDark}
-              allowOccupiedClick={allowOccupiedClick}
-              round={t.shape === 'ROUND'}
-              sx={{
-                position: 'absolute',
-                left: t.position_x * CELL + GAP / 2,
-                top: t.position_y * CELL + GAP / 2,
-              }}
-            />
-          ))}
+          {g.tables.map((t) => {
+            const displayX = shouldTranspose ? t.position_y : t.position_x;
+            const displayY = shouldTranspose ? t.position_x : t.position_y;
+            return (
+              <TableTile
+                key={t.id}
+                table={t}
+                selected={!!selectedIds?.has(t.id)}
+                disabled={!!disabledIds?.has(t.id)}
+                onClick={onClickTable}
+                isDark={isDark}
+                allowOccupiedClick={allowOccupiedClick}
+                round={t.shape === 'ROUND'}
+                sx={{
+                  position: 'absolute',
+                  left: displayX * CELL + GAP / 2,
+                  top: displayY * CELL + GAP / 2,
+                }}
+              />
+            );
+          })}
         </Box>
       </Paper>
     );
@@ -255,14 +275,69 @@ export default function RoomLayout({ tables, selectedIds, onClickTable, disabled
             <Typography variant="h6" component="div" sx={{ flexGrow: 1, fontWeight: 700, color: 'text.primary' }}>
               {group.room.name || 'Oda'}
             </Typography>
+            <IconButton onClick={() => setMobileViewMode(v => v === 'MAP' ? 'LIST' : 'MAP')} color="primary">
+              {mobileViewMode === 'MAP' ? <GridView /> : <MapIcon />}
+            </IconButton>
           </Toolbar>
         </AppBar>
-        <Box sx={{ flexGrow: 1, overflow: 'auto', p: 2 }}>
-          <Box sx={{ width: 'fit-content', mx: 'auto' }}>
-            {renderRoom(group)}
-          </Box>
+        <Box sx={{ flexGrow: 1, position: 'relative', overflow: 'hidden' }}>
+          {mobileViewMode === 'MAP' ? (
+            <>
+              <Box 
+                ref={scrollRef}
+                sx={{ 
+                  width: '100%', 
+                  height: '100%', 
+                  overflow: 'auto',
+                  display: 'flex', 
+                  justifyContent: 'safe center',
+                  alignItems: 'safe center',
+                  p: 4,
+                  pb: 16
+                }}
+              >
+                {renderRoom(group)}
+              </Box>
+              
+              {/* Directional Controls */}
+              <Box sx={{ position: 'absolute', right: 16, bottom: 8, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.5, zIndex: 1250 }}>
+                <IconButton onClick={() => scrollMap(0, -80)} sx={{ bgcolor: 'background.paper', boxShadow: '0 4px 12px rgba(0,0,0,0.15)', border: '1px solid', borderColor: 'divider', '&:hover': { bgcolor: 'background.paper' } }}>
+                  <KeyboardArrowUp />
+                </IconButton>
+                <Box sx={{ display: 'flex', gap: 5 }}>
+                  <IconButton onClick={() => scrollMap(-80, 0)} sx={{ bgcolor: 'background.paper', boxShadow: '0 4px 12px rgba(0,0,0,0.15)', border: '1px solid', borderColor: 'divider', '&:hover': { bgcolor: 'background.paper' } }}>
+                    <KeyboardArrowLeft />
+                  </IconButton>
+                  <IconButton onClick={() => scrollMap(80, 0)} sx={{ bgcolor: 'background.paper', boxShadow: '0 4px 12px rgba(0,0,0,0.15)', border: '1px solid', borderColor: 'divider', '&:hover': { bgcolor: 'background.paper' } }}>
+                    <KeyboardArrowRight />
+                  </IconButton>
+                </Box>
+                <IconButton onClick={() => scrollMap(0, 80)} sx={{ bgcolor: 'background.paper', boxShadow: '0 4px 12px rgba(0,0,0,0.15)', border: '1px solid', borderColor: 'divider', '&:hover': { bgcolor: 'background.paper' } }}>
+                  <KeyboardArrowDown />
+                </IconButton>
+              </Box>
+            </>
+          ) : (
+            <Box sx={{ width: '100%', height: '100%', overflow: 'auto', p: 2, pb: 14, display: 'flex', flexDirection: 'column', justifyContent: 'safe center' }}>
+              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, justifyContent: 'center' }}>
+                {group.tables.map(t => (
+                  <TableTile
+                    key={t.id}
+                    table={t}
+                    selected={!!selectedIds?.has(t.id)}
+                    disabled={!!disabledIds?.has(t.id)}
+                    onClick={onClickTable}
+                    isDark={isDark}
+                    allowOccupiedClick={allowOccupiedClick}
+                    round={t.shape === 'ROUND'}
+                    sx={{ position: 'relative', width: 64, height: 64, fontSize: 16 }}
+                  />
+                ))}
+              </Box>
+            </Box>
+          )}
         </Box>
-        <Box sx={{ p: 2, bgcolor: 'background.paper', borderTop: 1, borderColor: 'divider' }}>
+        <Box sx={{ p: 2, pb: 12, bgcolor: 'background.paper', borderTop: 1, borderColor: 'divider' }}>
           <Legend isDark={isDark} />
         </Box>
       </Box>
