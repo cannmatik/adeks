@@ -121,10 +121,6 @@ export default function AdminCategoriesPage() {
   };
 
   const handleDelete = async (name: string) => {
-    if (name === 'GARDEN') {
-      alert('Bahçe (GARDEN) kategorisi silinemez.');
-      return;
-    }
     if (!confirm(`${name} kategorisini silmek istediğinize emin misiniz?`)) return;
 
     setLoading(true);
@@ -223,7 +219,6 @@ export default function AdminCategoriesPage() {
                         onClick={() => handleDelete(c.name)}
                         size="small"
                         color="error"
-                        disabled={c.name === 'GARDEN'}
                       >
                         <Delete fontSize="small" />
                       </IconButton>

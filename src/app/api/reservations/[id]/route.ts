@@ -23,6 +23,10 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
     return NextResponse.json({ error: 'Admin notu için yetki gerekli' }, { status: 403 });
   }
 
+  if (status !== undefined && !isAdmin && status !== 'CANCELLED') {
+    return NextResponse.json({ error: 'Bu durum değişikliği için yetki gerekli' }, { status: 403 });
+  }
+
   if (!isAdmin) {
     const [ownedRes, participantRes] = await Promise.all([
       supabase.from('reservations').select('id').eq('id', id).eq('user_id', user.id).maybeSingle(),

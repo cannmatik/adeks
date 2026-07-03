@@ -137,14 +137,6 @@ export async function DELETE(req: Request) {
 
     const categoryName = name.trim().toUpperCase();
 
-    // Prevent deleting special GARDEN category
-    if (categoryName === 'GARDEN') {
-      return NextResponse.json(
-        { error: 'Bahçe (GARDEN) sistem kategorisidir ve silinemez.' },
-        { status: 400 }
-      );
-    }
-
     // Check if category is used by any tables
     const { data: tablesUse, error: tablesErr } = await auth.supabase
       .from('tables')

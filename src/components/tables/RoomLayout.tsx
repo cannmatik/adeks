@@ -416,10 +416,11 @@ export default function RoomLayout({ tables, selectedIds, onClickTable, disabled
                 return (
                   <ButtonBase
                     key={g.room.id}
-                    onClick={() => { 
-                      setSelectedMobileRoomId(g.room.id); 
+                    onClick={(e) => {
+                      e.currentTarget.blur();
+                      setSelectedMobileRoomId(g.room.id);
                       if (typeof window !== 'undefined' && localStorage.getItem('mapHintDismissed') !== 'true') {
-                        setShowMapHint(true); 
+                        setShowMapHint(true);
                       }
                     }}
                     sx={{

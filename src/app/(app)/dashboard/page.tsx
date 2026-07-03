@@ -424,7 +424,7 @@ export default function DashboardPage() {
                         <Button 
                           size="small" 
                           variant="contained" 
-                          onClick={(e) => { e.stopPropagation(); handleReserveClick(); }}
+                          onClick={(e) => { e.stopPropagation(); e.currentTarget.blur(); handleReserveClick(); }}
                           startIcon={<RocketLaunch sx={{ fontSize: '16px !important' }} />}
                           sx={{
                             boxShadow: '0 4px 12px rgba(225,29,42,0.25)',

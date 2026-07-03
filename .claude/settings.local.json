@@ -19,7 +19,9 @@
       "Bash(curl -s -X POST http://localhost:3000/api/auth/reset-password -H \"Content-Type: application/json\" -d '{\"email\":\"user3@adeks.com\",\"otp\":\"693903\",\"newPassword\":\"AnotherPass456!\"}')",
       "Bash(curl -s -w \"\\\\nHTTP %{http_code}\\\\n\" -X POST http://localhost:3000/api/auth/change-password/request-otp)",
       "Bash(curl -s -w \"\\\\nHTTP %{http_code}\\\\n\" -X POST http://localhost:3000/api/auth/change-password -H \"Content-Type: application/json\" -d '{\"otp\":\"123456\",\"newPassword\":\"whatever123\"}')",
-      "Bash(curl *)"
+      "Bash(curl *)",
+      "mcp__supabase__get_advisors",
+      "mcp__supabase__list_migrations"
     ]
   },
   "enableAllProjectMcpServers": true,

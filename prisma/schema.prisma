@@ -174,3 +174,41 @@ enum ReservationStatus {
 
   @@map("reservation_status")
 }
+
+enum SessionKind {
+  MEMBER
+  ANONYMOUS
+
+  @@map("session_kind")
+}
+
+model TableSession {
+  id                   String       @id @default(uuid()) @db.Uuid
+  table_id             String       @db.Uuid
+  kind                 SessionKind
+  user_id              String?      @db.Uuid
+  anonymous_label      String?
+  reservation_id       String?      @db.Uuid
+  started_at           DateTime     @default(now()) @db.Timestamptz(6)
+  ended_at             DateTime?    @db.Timestamptz(6)
+  hourly_rate_snapshot Decimal?     @db.Decimal
+  amount_charged       Decimal?     @db.Decimal
+  notes                String?
+  created_by           String?      @db.Uuid
+  created_at           DateTime     @default(now()) @db.Timestamptz(6)
+
+  @@map("table_sessions")
+}
+
+model TableStatusLog {
+  id                  String       @id @default(uuid()) @db.Uuid
+  table_id            String       @db.Uuid
+  old_status          TableStatus?
+  new_status          TableStatus
+  changed_by          String?      @db.Uuid
+  reason              String?
+  related_session_id  String?      @db.Uuid
+  created_at          DateTime     @default(now()) @db.Timestamptz(6)
+
+  @@map("table_status_log")
+}
