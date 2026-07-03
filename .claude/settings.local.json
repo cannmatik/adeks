@@ -21,7 +21,11 @@
       "Bash(curl -s -w \"\\\\nHTTP %{http_code}\\\\n\" -X POST http://localhost:3000/api/auth/change-password -H \"Content-Type: application/json\" -d '{\"otp\":\"123456\",\"newPassword\":\"whatever123\"}')",
       "Bash(curl *)",
       "mcp__supabase__get_advisors",
-      "mcp__supabase__list_migrations"
+      "mcp__supabase__list_migrations",
+      "Skill(run)",
+      "Bash(npx --yes chromium-cli --help)",
+      "Bash(npm ls *)",
+      "Bash(npx --yes playwright --version)"
     ]
   },
   "enableAllProjectMcpServers": true,

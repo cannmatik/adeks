@@ -18,11 +18,12 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
-import { Save, Add, Delete } from '@mui/icons-material';
+import { Save, Add, Delete, Widgets } from '@mui/icons-material';
 import EditableRoomLayout from '@/components/tables/EditableRoomLayout';
 import { CafeTable, RoomLite } from '@/components/tables/TableCard';
 import { STATUS_LABEL, TableCategory, TableStatus } from '@/lib/categories';
 import { useCategories } from '@/components/CategoryProvider';
+import { OBJECT_KINDS, FloorObjectItem, rectsOverlap } from '@/components/tables/objectMeta';
 
 const statuses: TableStatus[] = ['AVAILABLE', 'OCCUPIED', 'MAINTENANCE'];
 
@@ -62,6 +63,17 @@ export default function AdminFloorPlanPage() {
   const [editRoom, setEditRoom] = useState<RoomLite | null>(null);
   const [placingRoom, setPlacingRoom] = useState<{ floor: string; colSpan: number; rowSpan: number } | null>(null);
 
+  // Floor object states
+  const [objects, setObjects] = useState<FloorObjectItem[]>([]);
+  const [originalObjects, setOriginalObjects] = useState<FloorObjectItem[]>([]);
+  const [objDialogOpen, setObjDialogOpen] = useState(false);
+  const [objEditing, setObjEditing] = useState<FloorObjectItem | null>(null); // null = yeni ekleme
+  const [objFloor, setObjFloor] = useState('');
+  const [objKind, setObjKind] = useState('WC');
+  const [objLabel, setObjLabel] = useState('');
+  const [objWidth, setObjWidth] = useState(2);
+  const [objHeight, setObjHeight] = useState(2);
+
   // Room form fields
   const [roomName, setRoomName] = useState('');
   const [roomFloor, setRoomFloor] = useState('1');
@@ -80,24 +92,31 @@ export default function AdminFloorPlanPage() {
     setLoading(true);
     setError('');
     try {
-      const [tablesRes, roomsRes] = await Promise.all([
+      const [tablesRes, roomsRes, objectsRes] = await Promise.all([
         fetch('/api/tables'),
         fetch('/api/rooms'),
+        fetch('/api/floor-objects'),
       ]);
       const tablesData = await tablesRes.json();
       const roomsData = await roomsRes.json();
-      if (tablesRes.ok && roomsRes.ok) {
+      const objectsData = await objectsRes.json();
+      if (tablesRes.ok && roomsRes.ok && objectsRes.ok) {
         const rawTables = tablesData.tables || [];
         const rawRooms = roomsData.rooms || [];
-        
+        const rawObjects = objectsData.objects || [];
+
         setTables(rawTables);
         setOriginalTables(JSON.parse(JSON.stringify(rawTables)));
-        
+
         setRooms(rawRooms);
         setOriginalRooms(JSON.parse(JSON.stringify(rawRooms)));
+
+        setObjects(rawObjects);
+        setOriginalObjects(JSON.parse(JSON.stringify(rawObjects)));
       } else {
         if (!tablesRes.ok) setError(tablesData.error);
         if (!roomsRes.ok) setError(roomsData.error);
+        if (!objectsRes.ok) setError(objectsData.error);
       }
     } catch (err: any) {
       setError(err.message);
@@ -137,11 +156,25 @@ export default function AdminFloorPlanPage() {
     );
   }
 
+  function objectChanged(orig: FloorObjectItem, curr: FloorObjectItem): boolean {
+    return (
+      orig.kind !== curr.kind ||
+      (orig.label ?? '') !== (curr.label ?? '') ||
+      orig.floor_col !== curr.floor_col ||
+      orig.floor_row !== curr.floor_row ||
+      orig.col_span !== curr.col_span ||
+      orig.row_span !== curr.row_span ||
+      orig.floor !== curr.floor
+    );
+  }
+
   const { hasChanges, changeCount } = useMemo(() => {
     const origTableMap = new Map(originalTables.map((t) => [t.id, t]));
     const currTableMap = new Map(tables.map((t) => [t.id, t]));
     const origRoomMap = new Map(originalRooms.map((r) => [r.id, r]));
     const currRoomMap = new Map(rooms.map((r) => [r.id, r]));
+    const origObjMap = new Map(originalObjects.map((o) => [o.id, o]));
+    const currObjMap = new Map(objects.map((o) => [o.id, o]));
 
     let count = 0;
     for (const t of tables) {
@@ -160,8 +193,16 @@ export default function AdminFloorPlanPage() {
     for (const r of originalRooms) {
       if (!currRoomMap.has(r.id)) count++;
     }
+    for (const o of objects) {
+      const orig = origObjMap.get(o.id);
+      if (!orig) count++;
+      else if (objectChanged(orig, o)) count++;
+    }
+    for (const o of originalObjects) {
+      if (!currObjMap.has(o.id)) count++;
+    }
     return { hasChanges: count > 0, changeCount: count };
-  }, [tables, rooms, originalTables, originalRooms]);
+  }, [tables, rooms, objects, originalTables, originalRooms, originalObjects]);
 
   const handleMove = (id: string, roomId: string, x: number, y: number) => {
     // Check if another table already occupies this position in the same room
@@ -177,6 +218,98 @@ export default function AdminFloorPlanPage() {
           : t
       )
     );
+  };
+
+  const handleFloorObjectMove = (id: string, floorCol: number, floorRow: number) => {
+    setObjects((prev) =>
+      prev.map((o) => (o.id === id ? { ...o, floor_col: floorCol, floor_row: floorRow } : o)),
+    );
+  };
+
+  const floors = useMemo(() => Array.from(new Set(rooms.map((r) => r.floor))).sort(), [rooms]);
+
+  const openObjectAdd = (floor?: string) => {
+    setObjEditing(null);
+    setObjFloor(floor || floors[0] || '');
+    setObjKind('WC');
+    setObjLabel('');
+    setObjWidth(2);
+    setObjHeight(2);
+    setObjDialogOpen(true);
+  };
+
+  const openObjectEdit = (obj: FloorObjectItem) => {
+    setObjEditing(obj);
+    setObjFloor(obj.floor);
+    setObjKind(obj.kind);
+    setObjLabel(obj.label ?? '');
+    setObjWidth(obj.col_span);
+    setObjHeight(obj.row_span);
+    setObjDialogOpen(true);
+  };
+
+  // Find the first free spot on a floor (avoiding rooms and other objects) where a w×h rect fits
+  const findObjectSpot = (floor: string, w: number, h: number, excludeId?: string) => {
+    const floorRooms = rooms.filter((r) => r.floor === floor);
+    const floorObjs = objects.filter((o) => o.floor === floor && o.id !== excludeId);
+    const gridW = Math.max(
+      w,
+      ...floorRooms.map((r) => (r.floor_col ?? 0) + (r.col_span ?? 1)),
+      ...floorObjs.map((o) => o.floor_col + o.col_span),
+    );
+    const gridH = Math.max(
+      h,
+      ...floorRooms.map((r) => (r.floor_row ?? 0) + (r.row_span ?? 1)),
+      ...floorObjs.map((o) => o.floor_row + o.row_span),
+    );
+    const blocked = [
+      ...floorRooms.map((r) => ({ x: r.floor_col ?? 0, y: r.floor_row ?? 0, w: r.col_span ?? 1, h: r.row_span ?? 1 })),
+      ...floorObjs.map((o) => ({ x: o.floor_col, y: o.floor_row, w: o.col_span, h: o.row_span })),
+    ];
+    for (let y = 0; y + h <= gridH + 1; y++) {
+      for (let x = 0; x + w <= gridW + 1; x++) {
+        if (!blocked.some((r) => rectsOverlap({ x, y, w, h }, r))) return { x, y };
+      }
+    }
+    return { x: 0, y: gridH }; // hiç yer yoksa altta yeni satıra koy
+  };
+
+  const handleObjectDialogSave = () => {
+    if (!objFloor) {
+      setError('Bir kat seçmelisiniz');
+      return;
+    }
+    const w = Math.max(1, Math.min(12, objWidth || 1));
+    const h = Math.max(1, Math.min(12, objHeight || 1));
+    if (objEditing) {
+      setObjects((prev) =>
+        prev.map((o) =>
+          o.id === objEditing.id
+            ? { ...o, kind: objKind, label: objLabel.trim() || null, col_span: w, row_span: h }
+            : o,
+        ),
+      );
+    } else {
+      const spot = findObjectSpot(objFloor, w, h);
+      const newObj: FloorObjectItem = {
+        id: crypto.randomUUID(),
+        floor: objFloor,
+        kind: objKind,
+        label: objLabel.trim() || null,
+        floor_col: spot.x,
+        floor_row: spot.y,
+        col_span: w,
+        row_span: h,
+      };
+      setObjects((prev) => [...prev, newObj]);
+    }
+    setObjDialogOpen(false);
+  };
+
+  const handleObjectDelete = () => {
+    if (!objEditing) return;
+    setObjects((prev) => prev.filter((o) => o.id !== objEditing.id));
+    setObjDialogOpen(false);
   };
 
   const handleDelete = (id: string) => {
@@ -389,6 +522,8 @@ export default function AdminFloorPlanPage() {
     const currTableMap = new Map(tables.map((t) => [t.id, t]));
     const origRoomMap = new Map(originalRooms.map((r) => [r.id, r]));
     const currRoomMap = new Map(rooms.map((r) => [r.id, r]));
+    const origObjMap = new Map(originalObjects.map((o) => [o.id, o]));
+    const currObjMap = new Map(objects.map((o) => [o.id, o]));
 
     const tableCreates = tables.filter((t) => !origTableMap.has(t.id));
     const tableUpdates = tables.filter((t) => {
@@ -404,11 +539,18 @@ export default function AdminFloorPlanPage() {
     });
     const roomDeletes = originalRooms.filter((r) => !currRoomMap.has(r.id));
 
+    const objectUpdates = objects.filter((o) => {
+      const orig = origObjMap.get(o.id);
+      return orig && objectChanged(orig, o);
+    });
+    const objectDeletes = originalObjects.filter((o) => !currObjMap.has(o.id));
+
     let anyError = '';
-    
+
     // We will build the final states locally to avoid React async state update closure bugs
     let finalRooms = JSON.parse(JSON.stringify(rooms)) as RoomLite[];
     let finalTables = JSON.parse(JSON.stringify(tables)) as CafeTable[];
+    let finalObjects = JSON.parse(JSON.stringify(objects)) as FloorObjectItem[];
 
     try {
       // 1. Create rooms first to get their real IDs
@@ -441,9 +583,9 @@ export default function AdminFloorPlanPage() {
         finalRooms = finalRooms.map(item => item.id === tempRoomId ? { ...item, id: realRoomId } : item);
 
         // Replace room object and room_id in finalTables
-        finalTables = finalTables.map(item => 
-          item.room?.id === tempRoomId 
-            ? { ...item, room: { ...item.room, id: realRoomId } } 
+        finalTables = finalTables.map(item =>
+          item.room?.id === tempRoomId
+            ? { ...item, room: { ...item.room, id: realRoomId } }
             : item
         );
       }
@@ -521,6 +663,70 @@ export default function AdminFloorPlanPage() {
       }
 
       if (!anyError) {
+        // 4b. Create floor objects
+        const objectCreates = finalObjects.filter((o) => !origObjMap.has(o.id));
+        for (const o of objectCreates) {
+          const res = await fetch('/api/floor-objects', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              floor: o.floor,
+              kind: o.kind,
+              label: o.label,
+              floor_col: o.floor_col,
+              floor_row: o.floor_row,
+              col_span: o.col_span,
+              row_span: o.row_span,
+            }),
+          });
+          const data = await res.json();
+          if (!res.ok) {
+            anyError = data.error || 'Obje eklenemedi';
+            break;
+          }
+          const tempId = o.id;
+          finalObjects = finalObjects.map((item) => (item.id === tempId ? { ...item, id: data.object.id } : item));
+        }
+      }
+
+      if (!anyError) {
+        // 4c. Update floor objects
+        for (const o of objectUpdates) {
+          const res = await fetch('/api/floor-objects', {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              id: o.id,
+              kind: o.kind,
+              label: o.label,
+              floor_col: o.floor_col,
+              floor_row: o.floor_row,
+              col_span: o.col_span,
+              row_span: o.row_span,
+            }),
+          });
+          if (!res.ok) {
+            const data = await res.json();
+            anyError = data.error || 'Obje güncellenemedi';
+            break;
+          }
+        }
+      }
+
+      if (!anyError) {
+        // 4d. Delete floor objects
+        for (const o of objectDeletes) {
+          const res = await fetch(`/api/floor-objects?id=${o.id}`, { method: 'DELETE' });
+          if (!res.ok) {
+            const data = await res.json();
+            anyError = data.error || 'Obje silinemedi';
+            break;
+          }
+          finalObjects = finalObjects.filter((item) => item.id !== o.id);
+        }
+      }
+
+      if (!anyError) {
         // 5. Update rooms
         for (const r of roomUpdates) {
           const res = await fetch('/api/rooms', {
@@ -568,8 +774,10 @@ export default function AdminFloorPlanPage() {
         // Update states and originals synchronously using the constructed final arrays
         setTables(finalTables);
         setRooms(finalRooms);
+        setObjects(finalObjects);
         setOriginalTables(JSON.parse(JSON.stringify(finalTables)));
         setOriginalRooms(JSON.parse(JSON.stringify(finalRooms)));
+        setOriginalObjects(JSON.parse(JSON.stringify(finalObjects)));
       }
     } catch (err: any) {
       setError(err.message || 'Kaydetme sırasında bir hata oluştu');
@@ -593,6 +801,14 @@ export default function AdminFloorPlanPage() {
           </Button>
           <Button variant="contained" startIcon={<Add />} onClick={openRoomAdd} disabled={loading || saving}>
             Yeni Bölüm
+          </Button>
+          <Button
+            variant="outlined"
+            startIcon={<Widgets />}
+            onClick={() => openObjectAdd()}
+            disabled={loading || saving || rooms.length === 0}
+          >
+            Obje Ekle
           </Button>
           <Badge badgeContent={changeCount} color="error" invisible={!hasChanges}>
             <Button
@@ -633,6 +849,7 @@ export default function AdminFloorPlanPage() {
         <EditableRoomLayout
           rooms={rooms}
           tables={tables}
+          floorObjects={objects}
           onTableMove={handleMove}
           onTableDelete={handleDelete}
           onTableEdit={openEdit}
@@ -644,6 +861,8 @@ export default function AdminFloorPlanPage() {
           onRoomQuickAdd={handleRoomQuickAdd}
           placingRoom={placingRoom}
           onRoomPlace={handleRoomPlace}
+          onFloorObjectMove={handleFloorObjectMove}
+          onFloorObjectEdit={openObjectEdit}
         />
       )}
 
@@ -799,6 +1018,82 @@ export default function AdminFloorPlanPage() {
           <Button onClick={() => setAddOpen(false)}>İptal</Button>
           <Button variant="contained" onClick={handleAddSave} startIcon={<Save />}>
             Ekle
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Add/Edit Object Modal */}
+      <Dialog open={objDialogOpen} onClose={() => setObjDialogOpen(false)} maxWidth="xs" fullWidth>
+        <DialogTitle>
+          <Stack direction="row" sx={{ justifyContent: 'space-between', alignItems: 'center' }}>
+            <span>{objEditing ? 'Objeyi Düzenle' : 'Obje Ekle'}</span>
+            {objEditing && (
+              <IconButton size="small" color="error" onClick={handleObjectDelete}>
+                <Delete fontSize="small" />
+              </IconButton>
+            )}
+          </Stack>
+        </DialogTitle>
+        <DialogContent>
+          <Stack spacing={2} sx={{ mt: 1 }}>
+            <TextField
+              select
+              label="Kat"
+              value={objFloor}
+              onChange={(e) => setObjFloor(e.target.value)}
+              fullWidth
+            >
+              {floors.map((f) => (
+                <MenuItem key={f} value={f}>{f}. Kat</MenuItem>
+              ))}
+            </TextField>
+            <TextField
+              select
+              label="Tür"
+              value={objKind}
+              onChange={(e) => setObjKind(e.target.value)}
+              fullWidth
+            >
+              {Object.entries(OBJECT_KINDS).map(([kind, meta]) => (
+                <MenuItem key={kind} value={kind}>
+                  <Stack direction="row" spacing={1} sx={{ alignItems: 'center', color: meta.color, fontSize: 18 }}>
+                    {meta.icon}
+                    <Typography variant="body2" sx={{ color: 'text.primary' }}>{meta.label}</Typography>
+                  </Stack>
+                </MenuItem>
+              ))}
+            </TextField>
+            <TextField
+              label="Etiket (opsiyonel)"
+              value={objLabel}
+              onChange={(e) => setObjLabel(e.target.value)}
+              fullWidth
+              placeholder="Boş bırakılırsa tür adı kullanılır"
+            />
+            <Stack direction="row" spacing={2}>
+              <TextField
+                label="Genişlik (hücre)"
+                type="number"
+                value={objWidth}
+                onChange={(e) => setObjWidth(Number(e.target.value))}
+                slotProps={{ inputLabel: { shrink: true }, htmlInput: { min: 1, max: 12 } }}
+                fullWidth
+              />
+              <TextField
+                label="Yükseklik (hücre)"
+                type="number"
+                value={objHeight}
+                onChange={(e) => setObjHeight(Number(e.target.value))}
+                slotProps={{ inputLabel: { shrink: true }, htmlInput: { min: 1, max: 12 } }}
+                fullWidth
+              />
+            </Stack>
+          </Stack>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button onClick={() => setObjDialogOpen(false)}>İptal</Button>
+          <Button variant="contained" onClick={handleObjectDialogSave}>
+            {objEditing ? 'Tamam' : 'Ekle'}
           </Button>
         </DialogActions>
       </Dialog>

@@ -1,11 +1,12 @@
 'use client';
 
-import React, { useMemo, useState, useRef } from 'react';
+import React, { useMemo, useState, useRef, useEffect, useCallback } from 'react';
 import { Box, Paper, Stack, Tooltip, Typography, useTheme, useMediaQuery, AppBar, Toolbar, IconButton, ButtonBase, Snackbar, Alert, Button, Dialog } from '@mui/material';
-import { ArrowBack, ArrowForward, TableRestaurant, GridView, Map as MapIcon, KeyboardArrowUp, KeyboardArrowDown, KeyboardArrowLeft, KeyboardArrowRight } from '@mui/icons-material';
+import { ArrowBack, ArrowForward, TableRestaurant, GridView, Map as MapIcon, KeyboardArrowUp, KeyboardArrowDown, KeyboardArrowLeft, KeyboardArrowRight, ZoomIn, Close } from '@mui/icons-material';
 import { useColorScheme } from '@mui/material/styles';
 import { CafeTable, RoomLite } from './TableCard';
 import { useCategories } from '@/components/CategoryProvider';
+import { FloorObjectItem, objectMeta, objectLabel } from './objectMeta';
 
 interface Props {
   tables: CafeTable[];
@@ -52,6 +53,29 @@ export default function RoomLayout({ tables, selectedIds, onClickTable, disabled
   const { mode } = useColorScheme();
   const isDark = mode === 'dark' || theme.palette.mode === 'dark';
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+
+  const [floorObjects, setFloorObjects] = useState<FloorObjectItem[]>([]);
+  useEffect(() => {
+    let cancelled = false;
+    fetch('/api/floor-objects')
+      .then((r) => (r.ok ? r.json() : { objects: [] }))
+      .then((data) => {
+        if (!cancelled) setFloorObjects(data.objects ?? []);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const floorObjectsByFloor = useMemo(() => {
+    const map = new Map<string, FloorObjectItem[]>();
+    for (const o of floorObjects) {
+      if (!map.has(o.floor)) map.set(o.floor, []);
+      map.get(o.floor)!.push(o);
+    }
+    return map;
+  }, [floorObjects]);
 
   const groups = useMemo(() => {
     const all = groupByRoom(tables);
@@ -108,8 +132,9 @@ export default function RoomLayout({ tables, selectedIds, onClickTable, disabled
   }, [byFloor]);
 
   const [selectedMobileRoomId, setSelectedMobileRoomId] = useState<string | null>(null);
-  const [mobileViewMode, setMobileViewMode] = useState<'MAP' | 'LIST'>('LIST'); // User seems to prefer list by default
+  const [mobileViewMode, setMobileViewMode] = useState<'MAP' | 'LIST'>('LIST'); // Grid (flat tile list) by default
   const [showMapHint, setShowMapHint] = useState(false);
+  const [floorOverviewOpen, setFloorOverviewOpen] = useState(false);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const scrollMap = (dx: number, dy: number) => {
@@ -118,9 +143,33 @@ export default function RoomLayout({ tables, selectedIds, onClickTable, disabled
     }
   };
 
+  // Kat genel görünümü açılınca, mevcut bölümü ortalayarak göster (soldan sürüklemeye gerek kalmasın)
+  const overviewScrollRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!floorOverviewOpen || !selectedMobileRoomId) return;
+    const currentGroup = groups.find((g) => g.room.id === selectedMobileRoomId);
+    if (!currentGroup) return;
+    const raf = requestAnimationFrame(() => {
+      const el = overviewScrollRef.current;
+      if (!el) return;
+      const OFFSET = 52;
+      const adj = adjustedPositions.get(currentGroup.room.id);
+      const roomLeft = (adj?.col ?? currentGroup.room.floor_col ?? 0) * CELL + OFFSET;
+      const roomTop = (adj?.row ?? currentGroup.room.floor_row ?? 0) * CELL + OFFSET;
+      const roomW = (currentGroup.room.col_span ?? 1) * CELL;
+      const roomH = (currentGroup.room.row_span ?? 1) * CELL;
+      el.scrollTo({
+        left: Math.max(0, roomLeft + roomW / 2 - el.clientWidth / 2),
+        top: Math.max(0, roomTop + roomH / 2 - el.clientHeight / 2),
+        behavior: 'auto',
+      });
+    });
+    return () => cancelAnimationFrame(raf);
+  }, [floorOverviewOpen, selectedMobileRoomId, groups, adjustedPositions]);
+
   if (groups.length === 0) return null;
 
-  const renderRoom = (g: Group) => {
+  const renderRoom = (g: Group, opts?: { noTranspose?: boolean }) => {
     const catMeta = g.room.category ? categoryMeta[g.room.category] : null;
     const accent = catMeta?.color ?? g.room.color ?? '#7E7E85';
     const short = catMeta?.short ?? g.room.name?.slice(0, 2).toUpperCase() ?? '??';
@@ -128,11 +177,11 @@ export default function RoomLayout({ tables, selectedIds, onClickTable, disabled
 
     const gridW = Math.max(g.room.col_span ?? 8, 1, ...g.tables.map((t) => t.position_x + 1));
     const gridH = Math.max(g.room.row_span ?? 5, 1, ...g.tables.map((t) => t.position_y + 1));
-    
-    // Auto-transpose to ensure it's vertical on mobile
+
+    // Auto-transpose to ensure it's vertical on mobile (skipped for the true-to-life floor overview)
     const isHorizontal = gridW > gridH;
-    const shouldTranspose = isMobile && isHorizontal;
-    
+    const shouldTranspose = isMobile && isHorizontal && !opts?.noTranspose;
+
     const displayW = shouldTranspose ? gridH : gridW;
     const displayH = shouldTranspose ? gridW : gridH;
 
@@ -265,8 +314,38 @@ export default function RoomLayout({ tables, selectedIds, onClickTable, disabled
       setSelectedMobileRoomId(null);
       return null;
     }
-    
+
+    const miniGridW = Math.max(group.room.col_span ?? 8, 1, ...group.tables.map((t) => t.position_x + 1));
+    const miniGridH = Math.max(group.room.row_span ?? 5, 1, ...group.tables.map((t) => t.position_y + 1));
+    const miniTranspose = miniGridW > miniGridH;
+
+    const groupsOnFloor = groups.filter((g) => g.room.floor === group.room.floor);
+    const roomsOnFloor = groupsOnFloor.map((g) => g.room);
+    const objectsOnFloor = floorObjectsByFloor.get(group.room.floor) ?? [];
+
+    const OV_VISUAL_OFFSET_X = 52;
+    const OV_VISUAL_OFFSET_Y = 52;
+    const overviewMaxCol = Math.max(
+      0,
+      ...groupsOnFloor.map((g) => {
+        const adj = adjustedPositions.get(g.room.id);
+        return (adj?.col ?? g.room.floor_col ?? 0) + (g.room.col_span ?? 1);
+      }),
+      ...objectsOnFloor.map((o) => o.floor_col + o.col_span),
+    );
+    const overviewMaxRow = Math.max(
+      0,
+      ...groupsOnFloor.map((g) => {
+        const adj = adjustedPositions.get(g.room.id);
+        return (adj?.row ?? g.room.floor_row ?? 0) + (g.room.row_span ?? 1);
+      }),
+      ...objectsOnFloor.map((o) => o.floor_row + o.row_span),
+    );
+    const overviewCanvasW = overviewMaxCol * CELL + OV_VISUAL_OFFSET_X + 40;
+    const overviewCanvasH = overviewMaxRow * CELL + OV_VISUAL_OFFSET_Y + 40;
+
     return (
+      <>
       <Dialog fullScreen open={true} sx={{ zIndex: 1200, '& .MuiDialog-paper': { bgcolor: 'background.default', display: 'flex', flexDirection: 'column' } }}>
         <AppBar position="static" elevation={0} sx={{ bgcolor: 'background.paper', borderBottom: 1, borderColor: 'divider' }}>
           <Toolbar>
@@ -276,21 +355,29 @@ export default function RoomLayout({ tables, selectedIds, onClickTable, disabled
             <Typography variant="h6" component="div" sx={{ flexGrow: 1, fontWeight: 700, color: 'text.primary' }}>
               {group.room.name || 'Oda'}
             </Typography>
+            {roomsOnFloor.length > 1 && (
+              <Tooltip title="Kat Haritası">
+                <IconButton onClick={() => setFloorOverviewOpen(true)} color="primary">
+                  <MapIcon />
+                </IconButton>
+              </Tooltip>
+            )}
             <IconButton onClick={() => setMobileViewMode(v => v === 'MAP' ? 'LIST' : 'MAP')} color="primary">
-              {mobileViewMode === 'MAP' ? <GridView /> : <MapIcon />}
+              {mobileViewMode === 'MAP' ? <GridView /> : <TableRestaurant />}
             </IconButton>
           </Toolbar>
         </AppBar>
         <Box sx={{ flexGrow: 1, position: 'relative', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
           {mobileViewMode === 'MAP' ? (
             <>
-              <Box 
+              <Box
                 ref={scrollRef}
-                sx={{ 
-                  width: '100%', 
-                  height: '100%', 
+                sx={{
+                  position: 'relative',
+                  width: '100%',
+                  height: '100%',
                   overflow: 'auto',
-                  display: 'flex', 
+                  display: 'flex',
                   justifyContent: 'safe center',
                   alignItems: 'safe center',
                   p: 4,
@@ -299,7 +386,17 @@ export default function RoomLayout({ tables, selectedIds, onClickTable, disabled
               >
                 {renderRoom(group)}
               </Box>
-              
+
+              {/* Minimap */}
+              <MapMinimap
+                scrollRef={scrollRef}
+                isDark={isDark}
+                tables={group.tables}
+                transposed={miniTranspose}
+                selectedIds={selectedIds}
+                roomKey={`${group.room.id}-${mobileViewMode}`}
+              />
+
               {/* Directional Controls */}
               <Box sx={{ position: 'absolute', right: 16, bottom: 8, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.5, zIndex: 1250 }}>
                 <IconButton onClick={() => scrollMap(0, -80)} sx={{ bgcolor: 'background.paper', boxShadow: '0 4px 12px rgba(0,0,0,0.15)', border: '1px solid', borderColor: 'divider', '&:hover': { bgcolor: 'background.paper' } }}>
@@ -394,6 +491,99 @@ export default function RoomLayout({ tables, selectedIds, onClickTable, disabled
           </Paper>
         )}
       </Dialog>
+
+      {/* Tam ekran, gezinilebilir kat genel görünümü — tüm bölümler ve masalar */}
+      <Dialog
+        fullScreen
+        open={floorOverviewOpen}
+        onClose={() => setFloorOverviewOpen(false)}
+        sx={{ zIndex: 1400, '& .MuiDialog-paper': { bgcolor: 'background.default' } }}
+      >
+        <AppBar position="static" elevation={0} sx={{ bgcolor: 'background.paper', borderBottom: 1, borderColor: 'divider' }}>
+          <Toolbar>
+            <Typography variant="h6" component="div" sx={{ flexGrow: 1, fontWeight: 700, color: 'text.primary' }}>
+              {group.room.floor}. Kat — Tüm Bölümler
+            </Typography>
+            <IconButton edge="end" onClick={() => setFloorOverviewOpen(false)}>
+              <Close />
+            </IconButton>
+          </Toolbar>
+        </AppBar>
+        <Box ref={overviewScrollRef} sx={{ flex: 1, overflow: 'auto', p: 2 }}>
+          <Box sx={{ position: 'relative', width: overviewCanvasW, height: overviewCanvasH }}>
+            {groupsOnFloor.map((g) => {
+              const adj = adjustedPositions.get(g.room.id);
+              const isCurrentRoom = g.room.id === group.room.id;
+              return (
+                <Box
+                  key={g.room.id}
+                  sx={{
+                    position: 'absolute',
+                    top: (adj?.row ?? g.room.floor_row ?? 0) * CELL + OV_VISUAL_OFFSET_Y,
+                    left: (adj?.col ?? g.room.floor_col ?? 0) * CELL + OV_VISUAL_OFFSET_X,
+                  }}
+                >
+                  {isCurrentRoom && (
+                    <Box
+                      sx={{
+                        position: 'absolute',
+                        left: '50%',
+                        top: -26,
+                        transform: 'translateX(-50%)',
+                        bgcolor: '#E11D2A',
+                        color: '#FFF',
+                        fontSize: 10,
+                        fontWeight: 800,
+                        letterSpacing: '0.03em',
+                        px: 1,
+                        py: 0.3,
+                        borderRadius: 1,
+                        whiteSpace: 'nowrap',
+                        boxShadow: '0 2px 8px rgba(225,29,42,0.4)',
+                        zIndex: 5,
+                      }}
+                    >
+                      📍 BURADASINIZ
+                    </Box>
+                  )}
+                  <Box
+                    sx={
+                      isCurrentRoom
+                        ? {
+                            outline: '3px solid #E11D2A',
+                            outlineOffset: 2,
+                            borderRadius: 1,
+                            boxShadow: '0 0 0 6px rgba(225,29,42,0.15)',
+                          }
+                        : undefined
+                    }
+                  >
+                    {renderRoom(g, { noTranspose: true })}
+                  </Box>
+                </Box>
+              );
+            })}
+            {objectsOnFloor.map((o) => (
+              <ObjectTile
+                key={o.id}
+                obj={o}
+                isDark={isDark}
+                sx={{
+                  position: 'absolute',
+                  left: o.floor_col * CELL + OV_VISUAL_OFFSET_X,
+                  top: o.floor_row * CELL + OV_VISUAL_OFFSET_Y,
+                  width: o.col_span * CELL,
+                  height: o.row_span * CELL,
+                }}
+              />
+            ))}
+          </Box>
+        </Box>
+        <Box sx={{ p: 1.5, bgcolor: 'background.paper', borderTop: 1, borderColor: 'divider' }}>
+          <Legend isDark={isDark} />
+        </Box>
+      </Dialog>
+      </>
     );
   }
 
@@ -419,6 +609,7 @@ export default function RoomLayout({ tables, selectedIds, onClickTable, disabled
                     onClick={(e) => {
                       e.currentTarget.blur();
                       setSelectedMobileRoomId(g.room.id);
+                      setMobileViewMode('LIST');
                       if (typeof window !== 'undefined' && localStorage.getItem('mapHintDismissed') !== 'true') {
                         setShowMapHint(true);
                       }
@@ -473,15 +664,24 @@ export default function RoomLayout({ tables, selectedIds, onClickTable, disabled
   return (
     <Stack spacing={3}>
       {byFloor.map(([f, fgroups]) => {
-        // Calculate dynamic canvas size from room positions (same logic as admin)
-        const maxCol = Math.max(0, ...fgroups.map(g => {
-          const adj = adjustedPositions.get(g.room.id);
-          return (adj?.col ?? g.room.floor_col ?? 0) + (g.room.col_span ?? 1);
-        }));
-        const maxRow = Math.max(0, ...fgroups.map(g => {
-          const adj = adjustedPositions.get(g.room.id);
-          return (adj?.row ?? g.room.floor_row ?? 0) + (g.room.row_span ?? 1);
-        }));
+        const floorObjs = floorObjectsByFloor.get(f) ?? [];
+        // Calculate dynamic canvas size from room + object positions (same logic as admin)
+        const maxCol = Math.max(
+          0,
+          ...fgroups.map(g => {
+            const adj = adjustedPositions.get(g.room.id);
+            return (adj?.col ?? g.room.floor_col ?? 0) + (g.room.col_span ?? 1);
+          }),
+          ...floorObjs.map(o => o.floor_col + o.col_span),
+        );
+        const maxRow = Math.max(
+          0,
+          ...fgroups.map(g => {
+            const adj = adjustedPositions.get(g.room.id);
+            return (adj?.row ?? g.room.floor_row ?? 0) + (g.room.row_span ?? 1);
+          }),
+          ...floorObjs.map(o => o.floor_row + o.row_span),
+        );
         const canvasH = maxRow * CELL + VISUAL_OFFSET_Y + 52;
 
         return (
@@ -524,6 +724,21 @@ export default function RoomLayout({ tables, selectedIds, onClickTable, disabled
                   </Box>
                 );
               })}
+
+              {floorObjs.map((o) => (
+                <ObjectTile
+                  key={o.id}
+                  obj={o}
+                  isDark={isDark}
+                  sx={{
+                    position: 'absolute',
+                    left: o.floor_col * CELL + VISUAL_OFFSET_X,
+                    top: o.floor_row * CELL + VISUAL_OFFSET_Y,
+                    width: o.col_span * CELL,
+                    height: o.row_span * CELL,
+                  }}
+                />
+              ))}
             </Box>
           </Box>
         );
@@ -670,6 +885,333 @@ function TableTile({
         {table.number}
       </Box>
     </Tooltip>
+  );
+}
+
+function ObjectTile({ obj, isDark, sx }: { obj: FloorObjectItem; isDark: boolean; sx?: any }) {
+  const meta = objectMeta(obj.kind);
+  const label = objectLabel(obj);
+  return (
+    <Tooltip arrow disableTouchListener title={label}>
+      <Box
+        sx={{
+          bgcolor: isDark ? `${meta.color}14` : `${meta.color}0D`,
+          border: `1.5px dashed ${meta.color}80`,
+          borderRadius: 1.5,
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: 0.25,
+          color: meta.color,
+          fontSize: 16,
+          overflow: 'hidden',
+          pointerEvents: 'auto',
+          ...sx,
+        }}
+      >
+        {meta.icon}
+        <Typography
+          sx={{
+            fontSize: 9,
+            fontWeight: 700,
+            letterSpacing: '0.02em',
+            color: meta.color,
+            textTransform: 'uppercase',
+            whiteSpace: 'nowrap',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            maxWidth: '100%',
+            px: 0.25,
+          }}
+        >
+          {label}
+        </Typography>
+      </Box>
+    </Tooltip>
+  );
+}
+
+function FloorOverviewMinimap({
+  rooms,
+  currentRoomId,
+  floorObjects,
+  isDark,
+  onOpen,
+}: {
+  rooms: RoomLite[];
+  currentRoomId: string;
+  floorObjects: FloorObjectItem[];
+  isDark: boolean;
+  onOpen: () => void;
+}) {
+  if (rooms.length <= 1 && floorObjects.length === 0) return null; // tek bölüm varsa göstermeye gerek yok
+
+  const UNIT = 10;
+  const MAX_W = 92;
+  const MAX_H = 130;
+  const maxCol = Math.max(
+    1,
+    ...rooms.map((r) => (r.floor_col ?? 0) + (r.col_span ?? 1)),
+    ...floorObjects.map((o) => o.floor_col + o.col_span),
+  );
+  const maxRow = Math.max(
+    1,
+    ...rooms.map((r) => (r.floor_row ?? 0) + (r.row_span ?? 1)),
+    ...floorObjects.map((o) => o.floor_row + o.row_span),
+  );
+  const scale = Math.min(MAX_W / (maxCol * UNIT), MAX_H / (maxRow * UNIT), 1.5);
+  const w = maxCol * UNIT * scale;
+  const h = maxRow * UNIT * scale;
+
+  return (
+    <ButtonBase
+      onClick={onOpen}
+      sx={{
+        position: 'absolute',
+        top: 12,
+        left: 12,
+        zIndex: 1250,
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        gap: 0.5,
+        p: 0,
+        borderRadius: 1.5,
+      }}
+    >
+      <Box
+        sx={{
+          position: 'relative',
+          width: w,
+          height: h,
+          borderRadius: 1.5,
+          overflow: 'hidden',
+          bgcolor: isDark ? 'rgba(10,10,14,0.85)' : 'rgba(255,255,255,0.9)',
+          border: '1px solid',
+          borderColor: isDark ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.12)',
+          boxShadow: '0 4px 16px rgba(0,0,0,0.25)',
+          backdropFilter: 'blur(4px)',
+        }}
+      >
+      {rooms.map((r) => {
+        const isCurrent = r.id === currentRoomId;
+        const accent = r.color ?? '#7E7E85';
+        return (
+          <Box
+            key={r.id}
+            sx={{
+              position: 'absolute',
+              left: (r.floor_col ?? 0) * UNIT * scale,
+              top: (r.floor_row ?? 0) * UNIT * scale,
+              width: Math.max(3, (r.col_span ?? 1) * UNIT * scale),
+              height: Math.max(3, (r.row_span ?? 1) * UNIT * scale),
+              bgcolor: isCurrent ? '#E11D2A' : `${accent}90`,
+              border: isCurrent ? '1.5px solid #FFF' : 'none',
+              borderRadius: 0.25,
+            }}
+          />
+        );
+      })}
+      {floorObjects.map((o) => (
+        <Box
+          key={o.id}
+          sx={{
+            position: 'absolute',
+            left: o.floor_col * UNIT * scale,
+            top: o.floor_row * UNIT * scale,
+            width: Math.max(2, o.col_span * UNIT * scale),
+            height: Math.max(2, o.row_span * UNIT * scale),
+            bgcolor: `${objectMeta(o.kind).color}66`,
+            borderRadius: 0.25,
+          }}
+        />
+      ))}
+      <Box
+        sx={{
+          position: 'absolute',
+          inset: 0,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          bgcolor: isDark ? 'rgba(0,0,0,0.25)' : 'rgba(255,255,255,0.35)',
+          opacity: 0,
+          transition: 'opacity 0.15s ease',
+          '&:active': { opacity: 1 },
+        }}
+      >
+        <ZoomIn sx={{ fontSize: 18, color: isDark ? '#FFF' : '#111' }} />
+      </Box>
+      </Box>
+      <Box
+        sx={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 0.4,
+          bgcolor: isDark ? 'rgba(10,10,14,0.85)' : 'rgba(255,255,255,0.9)',
+          border: '1px solid',
+          borderColor: isDark ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.12)',
+          borderRadius: 1,
+          px: 0.75,
+          py: 0.2,
+          boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+        }}
+      >
+        <MapIcon sx={{ fontSize: 11, color: isDark ? 'rgba(255,255,255,0.7)' : 'rgba(0,0,0,0.6)' }} />
+        <Typography sx={{ fontSize: 9, fontWeight: 700, color: isDark ? 'rgba(255,255,255,0.8)' : 'rgba(0,0,0,0.65)', whiteSpace: 'nowrap' }}>
+          Kat Haritası
+        </Typography>
+      </Box>
+    </ButtonBase>
+  );
+}
+
+const MINIMAP_MAX_W = 110;
+const MINIMAP_MAX_H = 150;
+const ROOM_HEADER_H = 28;
+
+function MapMinimap({
+  scrollRef,
+  isDark,
+  tables,
+  transposed,
+  selectedIds,
+  roomKey,
+}: {
+  scrollRef: React.RefObject<HTMLDivElement | null>;
+  isDark: boolean;
+  tables: CafeTable[];
+  transposed: boolean;
+  selectedIds?: Set<string>;
+  roomKey: string;
+}) {
+  const [m, setM] = useState<{
+    sl: number; st: number; cw: number; ch: number; sw: number; sh: number;
+    ol: number; ot: number;
+  } | null>(null);
+
+  const update = useCallback(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const roomEl = el.firstElementChild as HTMLElement | null;
+    setM({
+      sl: el.scrollLeft,
+      st: el.scrollTop,
+      cw: el.clientWidth,
+      ch: el.clientHeight,
+      sw: el.scrollWidth,
+      sh: el.scrollHeight,
+      ol: roomEl?.offsetLeft ?? 0,
+      ot: roomEl?.offsetTop ?? 0,
+    });
+  }, [scrollRef]);
+
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    let raf = 0;
+    const onScroll = () => {
+      cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(update);
+    };
+    update();
+    // Content is laid out after first paint; measure again shortly after mount
+    const t = setTimeout(update, 150);
+    el.addEventListener('scroll', onScroll, { passive: true });
+    window.addEventListener('resize', update);
+    return () => {
+      clearTimeout(t);
+      cancelAnimationFrame(raf);
+      el.removeEventListener('scroll', onScroll);
+      window.removeEventListener('resize', update);
+    };
+  }, [scrollRef, update, roomKey]);
+
+  if (!m || m.sw <= m.cw + 4 && m.sh <= m.ch + 4) return null; // no scroll → no need
+
+  const scale = Math.min(MINIMAP_MAX_W / m.sw, MINIMAP_MAX_H / m.sh);
+  const miniW = m.sw * scale;
+  const miniH = m.sh * scale;
+
+  const bookingDot = (t: CafeTable): string => {
+    if (selectedIds?.has(t.id)) return '#E11D2A';
+    if (t.status === 'MAINTENANCE') return '#71717A';
+    const b = t.booking_status ?? 'AVAILABLE';
+    if (b === 'HOLD') return '#F59E0B';
+    if (b === 'CONFIRMED') return '#EF4444';
+    if (b === 'IN_USE') return '#6366F1';
+    return '#22C55E';
+  };
+
+  const handleJump = (e: React.MouseEvent<HTMLDivElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = (e.clientX - rect.left) / scale;
+    const y = (e.clientY - rect.top) / scale;
+    scrollRef.current?.scrollTo({
+      left: x - m.cw / 2,
+      top: y - m.ch / 2,
+      behavior: 'smooth',
+    });
+  };
+
+  return (
+    <Box
+      onClick={handleJump}
+      sx={{
+        position: 'absolute',
+        top: 12,
+        right: 12,
+        zIndex: 1250,
+        width: miniW,
+        height: miniH,
+        borderRadius: 1.5,
+        overflow: 'hidden',
+        bgcolor: isDark ? 'rgba(10,10,14,0.85)' : 'rgba(255,255,255,0.9)',
+        border: '1px solid',
+        borderColor: isDark ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.12)',
+        boxShadow: '0 4px 16px rgba(0,0,0,0.25)',
+        backdropFilter: 'blur(4px)',
+        cursor: 'pointer',
+      }}
+    >
+      {/* Table dots */}
+      {tables.map((t) => {
+        const dx = transposed ? t.position_y : t.position_x;
+        const dy = transposed ? t.position_x : t.position_y;
+        const selected = selectedIds?.has(t.id);
+        const size = Math.max(3, TILE * scale);
+        return (
+          <Box
+            key={t.id}
+            sx={{
+              position: 'absolute',
+              left: (m.ol + GAP / 2 + dx * CELL) * scale,
+              top: (m.ot + ROOM_HEADER_H + GAP / 2 + dy * CELL) * scale,
+              width: size,
+              height: size,
+              bgcolor: bookingDot(t),
+              borderRadius: t.shape === 'ROUND' ? '50%' : 0.25,
+              outline: selected ? '1.5px solid #FFF' : 'none',
+              zIndex: selected ? 2 : 1,
+            }}
+          />
+        );
+      })}
+      {/* Viewport indicator */}
+      <Box
+        sx={{
+          position: 'absolute',
+          left: m.sl * scale,
+          top: m.st * scale,
+          width: m.cw * scale,
+          height: m.ch * scale,
+          border: '1.5px solid #E11D2A',
+          borderRadius: 0.5,
+          bgcolor: 'rgba(225,29,42,0.08)',
+          pointerEvents: 'none',
+        }}
+      />
+    </Box>
   );
 }
 

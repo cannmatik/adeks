@@ -59,6 +59,20 @@ model Category {
   @@map("categories")
 }
 
+model FloorObject {
+  id         String   @id @default(uuid()) @db.Uuid
+  floor      String
+  kind       String
+  label      String?
+  floor_col  Int      @default(0)
+  floor_row  Int      @default(0)
+  col_span   Int      @default(2)
+  row_span   Int      @default(2)
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+
+  @@map("floor_objects")
+}
+
 model Table {
   id          String        @id @default(uuid()) @db.Uuid
   number      Int           @unique

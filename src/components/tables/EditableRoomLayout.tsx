@@ -7,10 +7,13 @@ import { useColorScheme } from '@mui/material/styles';
 import { CafeTable, RoomLite } from './TableCard';
 import EditableRoomCard from './EditableRoomCard';
 import { useCategories } from '@/components/CategoryProvider';
+import { FloorObjectItem, rectsOverlap } from './objectMeta';
+import EditableFloorObject from './EditableFloorObject';
 
 interface Props {
   rooms: RoomLite[];
   tables: CafeTable[];
+  floorObjects?: FloorObjectItem[];
   onTableMove: (id: string, roomId: string, x: number, y: number) => void;
   onTableDelete: (id: string) => void;
   onTableEdit: (table: CafeTable) => void;
@@ -22,6 +25,8 @@ interface Props {
   onRoomQuickAdd?: (floor: string) => void;
   placingRoom?: { floor: string; colSpan: number; rowSpan: number } | null;
   onRoomPlace?: (floor: string, col: number, row: number) => void;
+  onFloorObjectMove?: (id: string, floorCol: number, floorRow: number) => void;
+  onFloorObjectEdit?: (obj: FloorObjectItem) => void;
 }
 
 type Group = { room: RoomLite; tables: CafeTable[] };
@@ -60,6 +65,7 @@ function roomsOverlap(
 export default function EditableRoomLayout({
   rooms,
   tables,
+  floorObjects = [],
   onTableMove,
   onTableDelete,
   onTableEdit,
@@ -71,6 +77,8 @@ export default function EditableRoomLayout({
   onRoomQuickAdd,
   placingRoom,
   onRoomPlace,
+  onFloorObjectMove,
+  onFloorObjectEdit,
 }: Props) {
   const { categoryMeta } = useCategories();
   const theme = useTheme();
@@ -106,6 +114,17 @@ export default function EditableRoomLayout({
         return; // çakışma var, taşıma
       }
     }
+    for (const o of floorObjects) {
+      if (o.floor !== moving.floor) continue;
+      if (
+        rectsOverlap(
+          { x: candidate.floor_col, y: candidate.floor_row, w: candidate.col_span, h: candidate.row_span },
+          { x: o.floor_col, y: o.floor_row, w: o.col_span, h: o.row_span },
+        )
+      ) {
+        return; // obje ile çakışma var, taşıma
+      }
+    }
     onRoomMove(roomId, floorCol, floorRow);
   };
 
@@ -128,6 +147,17 @@ export default function EditableRoomLayout({
         })
       ) {
         return; // çakışma var, yerleştirme
+      }
+    }
+    for (const o of floorObjects) {
+      if (o.floor !== floor) continue;
+      if (
+        rectsOverlap(
+          { x: candidate.floor_col, y: candidate.floor_row, w: candidate.col_span, h: candidate.row_span },
+          { x: o.floor_col, y: o.floor_row, w: o.col_span, h: o.row_span },
+        )
+      ) {
+        return; // obje ile çakışma var, yerleştirme
       }
     }
     onRoomPlace(floor, col, row);
@@ -252,15 +282,33 @@ export default function EditableRoomLayout({
   }
 
   // Desktop View
+  const floorObjectsByFloor = useMemo(() => {
+    const map = new Map<string, FloorObjectItem[]>();
+    for (const o of floorObjects) {
+      if (!map.has(o.floor)) map.set(o.floor, []);
+      map.get(o.floor)!.push(o);
+    }
+    return map;
+  }, [floorObjects]);
+
   return (
     <Stack spacing={3}>
       {byFloor.map(([f, fgroups]) => {
-        // Calculate dynamic canvas size from room positions
+        // Calculate dynamic canvas size from room + object positions
         const CELL = 52;
         const VISUAL_OFFSET_X = 52;
         const VISUAL_OFFSET_Y = 52;
-        const maxCol = Math.max(0, ...fgroups.map(g => (g.room.floor_col ?? 0) + (g.room.col_span ?? 1)));
-        const maxRow = Math.max(0, ...fgroups.map(g => (g.room.floor_row ?? 0) + (g.room.row_span ?? 1)));
+        const floorObjs = floorObjectsByFloor.get(f) ?? [];
+        const maxCol = Math.max(
+          0,
+          ...fgroups.map(g => (g.room.floor_col ?? 0) + (g.room.col_span ?? 1)),
+          ...floorObjs.map(o => o.floor_col + o.col_span),
+        );
+        const maxRow = Math.max(
+          0,
+          ...fgroups.map(g => (g.room.floor_row ?? 0) + (g.room.row_span ?? 1)),
+          ...floorObjs.map(o => o.floor_row + o.row_span),
+        );
         // Add VISUAL_OFFSET for the top/left margin, plus extra space for floating controls (+100px)
         const canvasW = maxCol * CELL + VISUAL_OFFSET_X + 100;
         const canvasH = maxRow * CELL + VISUAL_OFFSET_Y + 52;
@@ -353,6 +401,30 @@ export default function EditableRoomLayout({
                   onRoomMove={handleRoomMove}
                 />
               ))}
+
+              {floorObjs.map((o) => {
+                const blockedRects = [
+                  ...fgroups.map((g) => ({
+                    x: g.room.floor_col ?? 0,
+                    y: g.room.floor_row ?? 0,
+                    w: g.room.col_span ?? 1,
+                    h: g.room.row_span ?? 1,
+                  })),
+                  ...floorObjs
+                    .filter((other) => other.id !== o.id)
+                    .map((other) => ({ x: other.floor_col, y: other.floor_row, w: other.col_span, h: other.row_span })),
+                ];
+                return (
+                  <EditableFloorObject
+                    key={o.id}
+                    obj={o}
+                    isDark={isDark}
+                    onMove={onFloorObjectMove ?? (() => {})}
+                    onEdit={onFloorObjectEdit ?? (() => {})}
+                    blockedRects={blockedRects}
+                  />
+                );
+              })}
 
               {placingRoom && placingRoom.floor === f && hoverPos && (
                 <Box
