@@ -121,12 +121,16 @@ export default function ChatPanel({ reservationId, header }: Props) {
       {header}
 
       {reservation && (
-        <Paper elevation={0} sx={{ p: 2, m: 2, mb: 0, bgcolor: 'action.hover', border: '1px solid', borderColor: 'divider', borderRadius: 2, display: 'flex', flexDirection: 'column', gap: 1 }}>
-          <Stack direction="row" sx={{ alignItems: 'center', justifyContent: 'space-between' }}>
-            <Typography variant="subtitle2" sx={{ fontWeight: 800 }}>
+        <Paper elevation={0} sx={{ p: { xs: 1.5, sm: 2 }, m: { xs: 1, sm: 2 }, mb: 0, bgcolor: 'action.hover', border: '1px solid', borderColor: 'divider', borderRadius: 2, display: 'flex', flexDirection: 'column', gap: 1 }}>
+          <Stack
+            direction="row"
+            spacing={1}
+            sx={{ alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', rowGap: 1 }}
+          >
+            <Typography variant="subtitle2" sx={{ fontWeight: 800, minWidth: 0, wordBreak: 'break-word' }}>
               Kişi: {reservation.owner?.full_name || 'Bilinmiyor'} {reservation.owner?.email ? `(${reservation.owner.email})` : ''}
             </Typography>
-            <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
+            <Stack direction="row" spacing={1} sx={{ alignItems: 'center', flexShrink: 0 }}>
               <Chip
                 size="small"
                 label={reservationStatus ? RESERVATION_LABEL[reservationStatus] : reservation.status}
@@ -137,7 +141,7 @@ export default function ChatPanel({ reservationId, header }: Props) {
               </Button>
             </Stack>
           </Stack>
-          
+
           <Collapse in={detailsOpen}>
             <Box sx={{ mt: 1, pt: 1, borderTop: '1px dashed', borderColor: 'divider' }}>
               <ReservationDetails reservation={reservation} isAdmin={role === 'admin'} />
@@ -148,7 +152,7 @@ export default function ChatPanel({ reservationId, header }: Props) {
 
       {error && <Alert severity="error" onClose={() => setError('')} sx={{ m: 2 }}>{error}</Alert>}
 
-      <Box ref={scrollRef} sx={{ flex: 1, overflowY: 'auto', p: 2, display: 'flex', flexDirection: 'column', gap: 1 }}>
+      <Box ref={scrollRef} sx={{ flex: 1, overflowY: 'auto', p: { xs: 1.5, sm: 2 }, display: 'flex', flexDirection: 'column', gap: 1 }}>
         {loading ? (
           <Box sx={{ textAlign: 'center', py: 4 }}>
             <CircularProgress size={24} />
@@ -165,7 +169,7 @@ export default function ChatPanel({ reservationId, header }: Props) {
                 key={m.id}
                 sx={{
                   alignSelf: mine ? 'flex-end' : 'flex-start',
-                  maxWidth: '75%',
+                  maxWidth: { xs: '85%', sm: '75%' },
                   bgcolor: mine ? 'primary.main' : 'background.default',
                   color: mine ? 'primary.contrastText' : 'text.primary',
                   border: mine ? 0 : 1,
@@ -187,7 +191,19 @@ export default function ChatPanel({ reservationId, header }: Props) {
         )}
       </Box>
 
-      <Box component="form" onSubmit={handleSend} sx={{ p: 1.5, borderTop: 1, borderColor: 'divider', display: 'flex', gap: 1 }}>
+      <Box
+        component="form"
+        onSubmit={handleSend}
+        sx={{
+          p: 1.5,
+          pb: 'max(12px, env(safe-area-inset-bottom))',
+          borderTop: 1,
+          borderColor: 'divider',
+          display: 'flex',
+          gap: 1,
+          flexShrink: 0,
+        }}
+      >
         <TextField
           fullWidth
           size="small"

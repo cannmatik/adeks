@@ -28,7 +28,7 @@ import { createClient } from '@/lib/supabase/client';
 import RoomLayout from '@/components/tables/RoomLayout';
 import { CafeTable } from '@/components/tables/TableCard';
 import { useCategories } from '@/components/CategoryProvider';
-import ChatPanel from '@/components/messages/ChatPanel';
+import ReservationMessagesDialog from '@/components/reservations/ReservationMessagesDialog';
 
 interface ActiveSession {
   id: string;
@@ -553,18 +553,11 @@ export default function AdminSessionsPage() {
       </Dialog>
 
       {/* Mesajlaşma Dialogu */}
-      <Dialog
+      <ReservationMessagesDialog
         open={msgOpen}
+        reservationId={msgReservationId}
         onClose={() => { setMsgOpen(false); load(); }}
-        maxWidth="md"
-        fullWidth
-        slotProps={{ paper: { sx: { height: '70vh' } } }}
-      >
-        <DialogTitle sx={{ pb: 1 }}>Rezervasyon Mesajları</DialogTitle>
-        <DialogContent sx={{ p: 0, display: 'flex', flexDirection: 'column', height: '100%' }}>
-          {msgReservationId && <ChatPanel reservationId={msgReservationId} />}
-        </DialogContent>
-      </Dialog>
+      />
 
       <Dialog open={!!detailsData} onClose={() => setDetailsData(null)} maxWidth="sm" fullWidth>
         <DialogTitle>Rezervasyon Detayları</DialogTitle>

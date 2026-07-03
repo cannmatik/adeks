@@ -22,7 +22,7 @@ import {
 } from '@mui/material';
 import { DataGrid, GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
 import { CheckCircle, Cancel, DoneAll, MarkChatUnread, ChatBubbleOutlined, DeleteOutlined, InfoOutlined } from '@mui/icons-material';
-import ChatPanel from '@/components/messages/ChatPanel';
+import ReservationMessagesDialog from '@/components/reservations/ReservationMessagesDialog';
 import ReservationDetails from '@/components/admin/ReservationDetails';
 import { RESERVATION_LABEL, ReservationStatus } from '@/lib/categories';
 import { createClient } from '@/lib/supabase/client';
@@ -346,18 +346,11 @@ export default function AdminReservationsPage() {
       </Paper>
 
       {/* Mesajlaşma Dialogu */}
-      <Dialog
+      <ReservationMessagesDialog
         open={msgOpen}
+        reservationId={msgReservationId}
         onClose={() => { setMsgOpen(false); load(); }}
-        maxWidth="md"
-        fullWidth
-        slotProps={{ paper: { sx: { height: '70vh' } } }}
-      >
-        <DialogTitle sx={{ pb: 1 }}>Rezervasyon Mesajları</DialogTitle>
-        <DialogContent sx={{ p: 0, display: 'flex', flexDirection: 'column', height: '100%' }}>
-          {msgReservationId && <ChatPanel reservationId={msgReservationId} />}
-        </DialogContent>
-      </Dialog>
+      />
 
       <Dialog open={!!detailsData} onClose={() => setDetailsData(null)} maxWidth="sm" fullWidth>
         <DialogTitle>Rezervasyon Detayları</DialogTitle>
