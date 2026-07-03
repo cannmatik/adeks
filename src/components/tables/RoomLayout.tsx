@@ -346,7 +346,7 @@ export default function RoomLayout({ tables, selectedIds, onClickTable, disabled
 
     return (
       <>
-      <Dialog fullScreen open={true} sx={{ zIndex: 1200, '& .MuiDialog-paper': { bgcolor: 'background.default', display: 'flex', flexDirection: 'column' } }}>
+      <Dialog fullScreen open={true} sx={{ zIndex: 1350, '& .MuiDialog-paper': { bgcolor: 'background.default', display: 'flex', flexDirection: 'column' } }}>
         <AppBar position="static" elevation={0} sx={{ bgcolor: 'background.paper', borderBottom: 1, borderColor: 'divider' }}>
           <Toolbar>
             <IconButton edge="start" onClick={() => { setSelectedMobileRoomId(null); setMobileViewMode('LIST'); }} sx={{ mr: 2 }}>

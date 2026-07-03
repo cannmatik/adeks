@@ -11,6 +11,7 @@ export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const start = searchParams.get('start');
   const end = searchParams.get('end');
+  const excludeReservationId = searchParams.get('excludeReservationId');
 
   if (!start || !end) {
     return NextResponse.json({ error: 'start ve end zorunlu' }, { status: 400 });
@@ -20,12 +21,16 @@ export async function GET(req: Request) {
   }
 
   // 1) Çakışan rezervasyonları bul (HOLD + CONFIRMED)
-  const { data: overlappingRes, error: rErr } = await supabase
+  let overlapQuery = supabase
     .from('reservations')
     .select('id, status, reservation_tables(table_id)')
     .in('status', ['HOLD', 'CONFIRMED'])
     .lt('start_time', end)
     .gt('end_time', start);
+  if (excludeReservationId) {
+    overlapQuery = overlapQuery.neq('id', excludeReservationId);
+  }
+  const { data: overlappingRes, error: rErr } = await overlapQuery;
 
   // HOLD enum değeri yoksa sadece CONFIRMED'a düş
   const reservationMap = new Map<string, 'HOLD' | 'CONFIRMED'>();

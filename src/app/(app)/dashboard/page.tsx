@@ -403,7 +403,7 @@ export default function DashboardPage() {
                       bottom: { xs: 16, md: 16 },
                       left: { xs: 16, md: 'auto' },
                       right: { xs: 16, md: 'auto' },
-                      zIndex: { xs: 1300, md: 10 },
+                      zIndex: 1300,
                       mt: { xs: 0, md: 4 },
                       p: 1.5,
                       borderRadius: 2,

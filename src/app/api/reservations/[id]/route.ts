@@ -17,7 +17,11 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
   const isAdmin = profile?.role === 'admin';
 
   const body = await req.json();
-  const { status, notes, admin_notes, start_time, end_time, contact_phone } = body;
+  const { status, notes, admin_notes, start_time, end_time, contact_phone, table_ids } = body;
+
+  if (table_ids !== undefined && (!Array.isArray(table_ids) || table_ids.length === 0)) {
+    return NextResponse.json({ error: 'En az bir masa seçilmeli' }, { status: 400 });
+  }
 
   if (admin_notes !== undefined && !isAdmin) {
     return NextResponse.json({ error: 'Admin notu için yetki gerekli' }, { status: 403 });
@@ -43,6 +47,52 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
     }
   }
 
+  if (start_time !== undefined || end_time !== undefined || table_ids !== undefined) {
+    const { data: current, error: currentError } = await supabase
+      .from('reservations')
+      .select('status, start_time, end_time, reservation_tables(table_id)')
+      .eq('id', id)
+      .single();
+
+    if (currentError || !current) {
+      return NextResponse.json({ error: 'Rezervasyon bulunamadı' }, { status: 404 });
+    }
+
+    if (current.status !== 'HOLD') {
+      return NextResponse.json(
+        { error: 'Onaylanmış rezervasyonun zamanı veya masaları değiştirilemez' },
+        { status: 403 },
+      );
+    }
+
+    const newStart = start_time ?? current.start_time;
+    const newEnd = end_time ?? current.end_time;
+    const tableIds: string[] = table_ids ?? (current.reservation_tables ?? []).map((rt: any) => rt.table_id);
+
+    // Çakışma kontrolü — yeni zaman aralığında masalardan biri dolu olmamalı
+    const { data: overlapping, error: conflictError } = await supabase
+      .from('reservations')
+      .select('id, reservation_tables(table_id)')
+      .in('status', ['HOLD', 'CONFIRMED'])
+      .neq('id', id)
+      .lt('start_time', newEnd)
+      .gt('end_time', newStart);
+
+    if (conflictError) {
+      return NextResponse.json({ error: conflictError.message }, { status: 500 });
+    }
+    const busy = new Set<string>();
+    for (const r of overlapping ?? []) {
+      for (const rt of (r as any).reservation_tables ?? []) busy.add(rt.table_id);
+    }
+    if (tableIds.some((tid: string) => busy.has(tid))) {
+      return NextResponse.json(
+        { error: 'Seçilen masalardan en az biri bu zaman aralığında dolu.' },
+        { status: 409 },
+      );
+    }
+  }
+
   const update: Record<string, unknown> = {};
   if (status) {
     update.status = status;
@@ -58,21 +108,36 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
     update.contact_phone = contact_phone.trim() || null;
   }
 
-  if (Object.keys(update).length === 0) {
+  if (Object.keys(update).length === 0 && table_ids === undefined) {
     return NextResponse.json({ error: 'Güncellenecek alan yok' }, { status: 400 });
   }
 
-  const { data, error } = await supabase
-    .from('reservations')
-    .update(update)
-    .eq('id', id)
-    .select()
-    .single();
-
-  if (error) {
-    console.error('PATCH ERROR:', error);
-    return NextResponse.json({ error: error.message }, { status: 400 });
+  let data: any = null;
+  if (Object.keys(update).length > 0) {
+    const res = await supabase.from('reservations').update(update).eq('id', id).select().single();
+    if (res.error) {
+      console.error('PATCH ERROR:', res.error);
+      return NextResponse.json({ error: res.error.message }, { status: 400 });
+    }
+    data = res.data;
   }
+
+  if (table_ids !== undefined) {
+    const { error: delErr } = await supabase.from('reservation_tables').delete().eq('reservation_id', id);
+    if (delErr) return NextResponse.json({ error: delErr.message }, { status: 500 });
+
+    const { error: insErr } = await supabase
+      .from('reservation_tables')
+      .insert(table_ids.map((tid: string) => ({ reservation_id: id, table_id: tid })));
+    if (insErr) return NextResponse.json({ error: insErr.message }, { status: 500 });
+  }
+
+  if (!data) {
+    const res = await supabase.from('reservations').select().eq('id', id).single();
+    if (res.error) return NextResponse.json({ error: res.error.message }, { status: 500 });
+    data = res.data;
+  }
+
   return NextResponse.json({ reservation: data });
 }
 

@@ -25,7 +25,10 @@
       "Skill(run)",
       "Bash(npx --yes chromium-cli --help)",
       "Bash(npm ls *)",
-      "Bash(npx --yes playwright --version)"
+      "Bash(npx --yes playwright --version)",
+      "Bash(netstat -ano)",
+      "Bash(npm run *)",
+      "mcp__ide__getDiagnostics"
     ]
   },
   "enableAllProjectMcpServers": true,

@@ -9,6 +9,7 @@ import ReservationMessagesDialog from '@/components/reservations/ReservationMess
 import ReservationsPageHeader from '@/components/reservations/ReservationsPageHeader';
 import ReservationsSkeleton from '@/components/reservations/ReservationsSkeleton';
 import { ReservationRow } from '@/components/reservations/ReservationCard';
+import { CafeTable } from '@/components/tables/TableCard';
 
 export default function ReservationsPage() {
   const [items, setItems] = useState<ReservationRow[]>([]);
@@ -22,6 +23,10 @@ export default function ReservationsPage() {
   const [editEnd, setEditEnd] = useState('');
   const [editNotes, setEditNotes] = useState('');
   const [editPhone, setEditPhone] = useState('');
+  const [editTables, setEditTables] = useState<CafeTable[]>([]);
+  const [editTablesLoading, setEditTablesLoading] = useState(false);
+  const [editSelectedTableIds, setEditSelectedTableIds] = useState<Set<string>>(new Set());
+  const [editError, setEditError] = useState('');
   const [saving, setSaving] = useState(false);
 
   const [msgOpen, setMsgOpen] = useState(false);
@@ -67,11 +72,54 @@ export default function ReservationsPage() {
     setEditEnd(new Date(reservation.end_time).toISOString().slice(0, 16));
     setEditNotes(reservation.notes ?? '');
     setEditPhone(reservation.contact_phone ?? '');
+    setEditSelectedTableIds(new Set(reservation.tables.map((rt) => rt.table.id)));
+    setEditError('');
     setEditOpen(true);
   };
 
+  const toggleEditTable = (t: CafeTable) => {
+    if (t.booking_status !== 'AVAILABLE' || t.status === 'MAINTENANCE') return;
+    setEditSelectedTableIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(t.id)) next.delete(t.id);
+      else next.add(t.id);
+      return next;
+    });
+  };
+
+  useEffect(() => {
+    if (!editOpen || !editItem || !editStart || !editEnd) return;
+    const start = new Date(editStart);
+    const end = new Date(editEnd);
+    if (isNaN(start.getTime()) || isNaN(end.getTime()) || end <= start) return;
+
+    let cancelled = false;
+    setEditTablesLoading(true);
+    const url = new URL('/api/tables/status', window.location.origin);
+    url.searchParams.set('start', start.toISOString());
+    url.searchParams.set('end', end.toISOString());
+    url.searchParams.set('excludeReservationId', editItem.id);
+    fetch(url.toString())
+      .then((r) => (r.ok ? r.json() : { tables: [] }))
+      .then((data) => {
+        if (!cancelled) setEditTables(data.tables ?? []);
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (!cancelled) setEditTablesLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [editOpen, editItem, editStart, editEnd]);
+
   const handleEditSave = async () => {
     if (!editItem) return;
+    if (editSelectedTableIds.size === 0) {
+      setEditError('En az bir masa seçmelisiniz.');
+      return;
+    }
+    setEditError('');
     setSaving(true);
     try {
       const res = await fetch(`/api/reservations/${editItem.id}`, {
@@ -82,6 +130,7 @@ export default function ReservationsPage() {
           end_time: new Date(editEnd).toISOString(),
           notes: editNotes || null,
           contact_phone: editPhone.trim() || null,
+          table_ids: Array.from(editSelectedTableIds),
         }),
       });
       const data = await res.json();
@@ -91,7 +140,7 @@ export default function ReservationsPage() {
       load();
       setTimeout(() => setSuccess(''), 3000);
     } catch (err: any) {
-      setError(err.message);
+      setEditError(err.message);
     } finally {
       setSaving(false);
     }
@@ -153,10 +202,15 @@ export default function ReservationsPage() {
       <ReservationEditDialog
         open={editOpen}
         saving={saving}
+        error={editError}
         start={editStart}
         end={editEnd}
         notes={editNotes}
         phone={editPhone}
+        tables={editTables}
+        tablesLoading={editTablesLoading}
+        selectedTableIds={editSelectedTableIds}
+        onToggleTable={toggleEditTable}
         onClose={() => setEditOpen(false)}
         onSave={handleEditSave}
         onChangeStart={setEditStart}
