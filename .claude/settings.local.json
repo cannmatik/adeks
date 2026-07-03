@@ -7,7 +7,19 @@
       "Bash(npm view *)",
       "Bash(node scripts/seed-layout.mjs)",
       "mcp__supabase__apply_migration",
-      "mcp__supabase__execute_sql"
+      "mcp__supabase__execute_sql",
+      "Bash(npx prisma *)",
+      "Bash(npx tsc *)",
+      "Bash(npx eslint *)",
+      "Bash(curl -s -X POST http://localhost:3000/api/auth/forgot-password -H \"Content-Type: application/json\" -d '{\"email\":\"cannmatik@gmail.com\"}')",
+      "Bash(curl -s -X POST http://localhost:3000/api/auth/reset-password -H \"Content-Type: application/json\" -d '{\"email\":\"user3@adeks.com\",\"otp\":\"000000\",\"newPassword\":\"wrongtest123\"}')",
+      "Bash(curl -s -X POST http://localhost:3000/api/auth/forgot-password -H \"Content-Type: application/json\" -d '{\"email\":\"user3@adeks.com\"}')",
+      "Bash(curl -s -X POST http://localhost:3000/api/auth/reset-password -H \"Content-Type: application/json\" -d '{\"email\":\"user3@adeks.com\",\"otp\":\"693903\",\"newPassword\":\"TestReset123!\"}')",
+      "Bash(curl -s -X POST https://zmtcdlxcthajgqjqfqrb.supabase.co/auth/v1/token?grant_type=password -H 'apikey: sb_publishable_8b5W-NB282EOgpl_uemwug_Wlv_l9gG' -H 'Content-Type: application/json' -d '{\"email\":\"user3@adeks.com\",\"password\":\"TestReset123!\"}')",
+      "Bash(curl -s -X POST http://localhost:3000/api/auth/reset-password -H \"Content-Type: application/json\" -d '{\"email\":\"user3@adeks.com\",\"otp\":\"693903\",\"newPassword\":\"AnotherPass456!\"}')",
+      "Bash(curl -s -w \"\\\\nHTTP %{http_code}\\\\n\" -X POST http://localhost:3000/api/auth/change-password/request-otp)",
+      "Bash(curl -s -w \"\\\\nHTTP %{http_code}\\\\n\" -X POST http://localhost:3000/api/auth/change-password -H \"Content-Type: application/json\" -d '{\"otp\":\"123456\",\"newPassword\":\"whatever123\"}')",
+      "Bash(curl *)"
     ]
   },
   "enableAllProjectMcpServers": true,

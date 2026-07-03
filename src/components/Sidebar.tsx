@@ -40,6 +40,7 @@ import {
 } from '@mui/icons-material';
 import { useAuth } from './AuthProvider';
 import { createClient } from '@/lib/supabase/client';
+import ChangePasswordDialog from './ChangePasswordDialog';
 
 const DRAWER_WIDTH = 240;
 
@@ -74,6 +75,7 @@ export default function Sidebar({ mobileOpen = false, onMobileClose, variant = '
   const [adeksMemberNo, setAdeksMemberNo] = useState('');
   const [saving, setSaving] = useState(false);
   const [profileError, setProfileError] = useState('');
+  const [changePasswordOpen, setChangePasswordOpen] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -237,6 +239,15 @@ export default function Sidebar({ mobileOpen = false, onMobileClose, variant = '
               size="small"
               placeholder="Opsiyonel"
             />
+            <Button
+              onClick={() => {
+                setProfileOpen(false);
+                setChangePasswordOpen(true);
+              }}
+              sx={{ alignSelf: 'flex-start', textTransform: 'none' }}
+            >
+              Şifre Değiştir
+            </Button>
           </Box>
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2 }}>
@@ -248,6 +259,12 @@ export default function Sidebar({ mobileOpen = false, onMobileClose, variant = '
           </Button>
         </DialogActions>
       </Dialog>
+
+      <ChangePasswordDialog
+        open={changePasswordOpen}
+        onClose={() => setChangePasswordOpen(false)}
+        email={user?.email}
+      />
     </>
   );
 }

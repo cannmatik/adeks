@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client';
 import AuthLayout from '@/components/auth/AuthLayout';
 import LoginForm from '@/components/auth/LoginForm';
 import RegisterForm from '@/components/auth/RegisterForm';
+import ForgotPasswordForm from '@/components/auth/ForgotPasswordForm';
 import OtpDialog from '@/components/OtpDialog';
 
 export default function LoginPage() {
@@ -18,7 +19,7 @@ export default function LoginPage() {
     });
   }, [router, supabase]);
 
-  const [mode, setMode] = useState<'login' | 'register'>('login');
+  const [mode, setMode] = useState<'login' | 'register' | 'forgot'>('login');
 
   const [showOtpDialog, setShowOtpDialog] = useState(false);
   const [otpEmail, setOtpEmail] = useState('');
@@ -89,15 +90,18 @@ export default function LoginPage() {
   return (
     <AuthLayout>
       {mode === 'login' ? (
-        <LoginForm 
-          onSwitchToRegister={() => setMode('register')} 
+        <LoginForm
+          onSwitchToRegister={() => setMode('register')}
           onUnverifiedEmail={handleUnverifiedEmail}
+          onForgotPassword={() => setMode('forgot')}
         />
-      ) : (
+      ) : mode === 'register' ? (
         <RegisterForm
           onSwitchToLogin={() => setMode('login')}
           onRegisterSuccess={handleRegisterSuccess}
         />
+      ) : (
+        <ForgotPasswordForm onSwitchToLogin={() => setMode('login')} />
       )}
 
       <OtpDialog

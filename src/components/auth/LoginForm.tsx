@@ -17,9 +17,10 @@ import { Visibility, VisibilityOff } from '@mui/icons-material';
 interface LoginFormProps {
   onSwitchToRegister: () => void;
   onUnverifiedEmail?: (email: string, password: string) => void;
+  onForgotPassword?: () => void;
 }
 
-export default function LoginForm({ onSwitchToRegister, onUnverifiedEmail }: LoginFormProps) {
+export default function LoginForm({ onSwitchToRegister, onUnverifiedEmail, onForgotPassword }: LoginFormProps) {
   const router = useRouter();
   const supabase = createClient();
 
@@ -88,7 +89,7 @@ export default function LoginForm({ onSwitchToRegister, onUnverifiedEmail }: Log
         type={showPassword ? 'text' : 'password'}
         value={password}
         onChange={(e) => setPassword(e.target.value)}
-        sx={{ mb: 3 }}
+        sx={{ mb: 1 }}
         slotProps={{
           inputLabel: { shrink: true },
           input: {
@@ -106,6 +107,14 @@ export default function LoginForm({ onSwitchToRegister, onUnverifiedEmail }: Log
           },
         }}
       />
+
+      {onForgotPassword && (
+        <Box sx={{ textAlign: 'right', mb: 2 }}>
+          <Button onClick={onForgotPassword} size="small" sx={{ textTransform: 'none' }}>
+            Şifremi unuttum?
+          </Button>
+        </Box>
+      )}
 
       <Button
         fullWidth
