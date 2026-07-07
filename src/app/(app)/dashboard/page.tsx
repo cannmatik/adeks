@@ -1,8 +1,8 @@
 'use client';
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { Box, Button, Chip, Stack, Typography, Alert, CircularProgress, Paper, TextField, Collapse, IconButton, Stepper, Step, StepLabel, StepContent, FormControl, InputLabel, Select, MenuItem, Portal } from '@mui/material';
-import { EventAvailable, Clear, DateRange, Search, TouchApp, ExpandLess, ExpandMore, CheckCircle, RocketLaunch, Send } from '@mui/icons-material';
+import { Box, Button, Chip, Stack, Typography, Alert, CircularProgress, Paper, TextField, Collapse, IconButton, Stepper, Step, StepLabel, StepContent, FormControl, InputLabel, Select, MenuItem, Portal, Dialog, DialogTitle, DialogContent, DialogActions, Drawer, Badge, Fab, Tooltip } from '@mui/material';
+import { EventAvailable, Clear, DateRange, Search, TouchApp, ExpandLess, ExpandMore, CheckCircle, RocketLaunch, Send, ShoppingCart, Check, Close as CloseIcon, Delete, TableRestaurant } from '@mui/icons-material';
 import { CafeTable } from '@/components/tables/TableCard';
 import RoomLayout from '@/components/tables/RoomLayout';
 import { TableCategory } from '@/lib/categories';
@@ -45,6 +45,7 @@ export default function DashboardPage() {
   const [mounted, setMounted] = useState(false);
   const [activeStep, setActiveStep] = useState(0);
 
+  const [cartOpen, setCartOpen] = useState(false);
   const [successMode, setSuccessMode] = useState(false);
 
   const headerRef = useRef<HTMLDivElement>(null);
@@ -118,15 +119,19 @@ export default function DashboardPage() {
       });
     } catch (err: any) {
       setError(err.message);
+      return false;
     } finally {
       setLoading(false);
     }
+    return true;
   }, []);
 
   const handleNextStep0 = async () => {
     setSelectedIds(new Set());
-    await load();
-    setActiveStep(1);
+    const success = await load();
+    if (success) {
+      setActiveStep(1);
+    }
   };
 
   const toggleTable = (t: CafeTable) => {
@@ -295,13 +300,12 @@ export default function DashboardPage() {
                         value={start}
                         minDateTime={dayjs().add(55, 'minute').second(0).millisecond(0)}
                         onChange={(newValue) => {
-                          setStart(newValue as Dayjs);
-                          if (newValue && newValue.isValid()) {
-                            let duration = 60 * 60 * 1000;
-                            if (start && start.isValid() && end && end.isValid()) duration = end.diff(start);
-                            if (isNaN(duration) || duration < 60 * 60 * 1000) duration = 60 * 60 * 1000;
-                            setEnd(newValue.add(duration, 'millisecond'));
-                          }
+                          if (!newValue || !newValue.isValid()) return;
+                          setStart(newValue);
+                          let duration = 60 * 60 * 1000;
+                          if (start && start.isValid() && end && end.isValid()) duration = end.diff(start);
+                          if (isNaN(duration) || duration < 60 * 60 * 1000) duration = 60 * 60 * 1000;
+                          setEnd(newValue.add(duration, 'millisecond'));
                         }}
                         sx={{ width: '100%' }}
                       />
@@ -310,7 +314,8 @@ export default function DashboardPage() {
                         value={end}
                         minDateTime={start && start.isValid() ? start.add(1, 'hour') : undefined}
                         onChange={(newValue) => {
-                          setEnd(newValue as Dayjs);
+                          if (!newValue || !newValue.isValid()) return;
+                          setEnd(newValue);
                         }}
                         sx={{ width: '100%' }}
                       />
@@ -360,7 +365,7 @@ export default function DashboardPage() {
               <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>Masa Seçimi</Typography>
             </StepLabel>
             <StepContent>
-              <Box sx={{ pt: 1 }}>
+              <Box sx={{ pt: 1, position: 'relative' }}>
                 <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ mb: 3 }}>
                   <FormControl size="small" fullWidth>
                     <InputLabel>Kat Seçimi</InputLabel>
@@ -390,192 +395,275 @@ export default function DashboardPage() {
                 ) : filtered.length === 0 ? (
                   <Alert severity="info">Bu kriterlere uygun masa yok.</Alert>
                 ) : (
-                  <RoomLayout tables={filtered} floor={floor} onClickTable={toggleTable} selectedIds={selectedIds} />
+                  <RoomLayout tables={filtered} floor={floor} onClickTable={toggleTable} selectedIds={selectedIds} onCartClick={() => setCartOpen(true)} />
                 )}
 
-                {/* Yapışkan Alt Bar (Sadece 2. adımdayken masa seçilmişse göster) */}
+                {/* Yüzen Butonlar (Sepet ve Tamamla) */}
                 {selectedTables.length > 0 && activeStep === 1 && (
                   <Portal>
-                    <Paper
-                    elevation={4}
-                    sx={{
-                      position: { xs: 'fixed', md: 'sticky' },
-                      bottom: { xs: 16, md: 16 },
-                      left: { xs: 16, md: 'auto' },
-                      right: { xs: 16, md: 'auto' },
-                      zIndex: 1300,
-                      mt: { xs: 0, md: 4 },
-                      p: 1.5,
-                      borderRadius: 2,
-                      border: '1.5px solid',
-                      borderColor: 'primary.main',
-                      bgcolor: 'background.paper',
-                      boxShadow: '0 8px 32px rgba(0,0,0,0.2)',
-                    }}
-                  >
-                    <Stack direction="row" sx={{ alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer' }} onClick={() => setBasketExpanded(!basketExpanded)}>
-                      <Typography variant="body2" sx={{ fontWeight: 800, display: 'flex', alignItems: 'center', gap: 1 }}>
-                        {selectedTables.length} Masa Seçili
-                        <Typography component="span" variant="caption" color="text.secondary">
-                          ({totalRate.toFixed(0)} ₺/saat)
-                        </Typography>
-                      </Typography>
-                      <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
-                        <Button 
-                          size="small" 
-                          variant="contained" 
-                          onClick={(e) => { e.stopPropagation(); e.currentTarget.blur(); handleReserveClick(); }}
-                          startIcon={<RocketLaunch sx={{ fontSize: '16px !important' }} />}
-                          sx={{
-                            boxShadow: '0 4px 12px rgba(225,29,42,0.25)',
-                            fontWeight: 700,
-                            borderRadius: 2,
-                            transition: 'all 0.3s ease',
+                    <Box
+                      sx={{
+                        position: 'fixed',
+                        bottom: { xs: 24, md: 40 },
+                        right: { xs: 24, md: 40 },
+                        zIndex: 1500,
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: 1.5,
+                      }}
+                    >
+                      <Tooltip title="Rezervasyon Detayları" placement="left">
+                        <Fab
+                          onClick={(e) => { e.stopPropagation(); setCartOpen(true); }}
+                          sx={{ 
+                            width: 64,
+                            height: 64,
+                            alignSelf: 'flex-end',
+                            bgcolor: 'background.paper',
+                            boxShadow: '0 8px 24px rgba(0,0,0,0.12)',
+                            animation: 'popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)',
+                            transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
                             '&:hover': {
-                              boxShadow: '0 6px 18px rgba(225,29,42,0.4)',
-                              transform: 'translateY(-1px)',
-                            },
+                              bgcolor: 'background.paper',
+                              transform: 'translateY(-4px) scale(1.05)',
+                              boxShadow: '0 12px 32px rgba(0,0,0,0.18)',
+                            }
                           }}
                         >
-                          Seçimi Tamamla
-                        </Button>
-                        <IconButton size="small">
-                          {basketExpanded ? <ExpandMore /> : <ExpandLess />}
-                        </IconButton>
-                      </Stack>
-                    </Stack>
-                    <Collapse in={basketExpanded} sx={{ width: '100%' }}>
-                      <Box sx={{ mt: 2, pt: 2, borderTop: '1px solid', borderColor: 'divider', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 1.5 }}>
-                        <Stack direction="row" spacing={1} sx={{ alignItems: 'center', flexWrap: 'wrap' }}>
-                          <Typography variant="body2" sx={{ fontWeight: 700 }}>
-                            Seçili:
-                          </Typography>
-                          {selectedTables.map((t) => (
-                            <Chip key={t.id} label={`#${t.number}`} size="small" onDelete={() => toggleTable(t)} sx={{ fontWeight: 700 }} />
-                          ))}
-                        </Stack>
-                        <Button size="small" variant="outlined" startIcon={<Clear />} onClick={clearSelection}>
-                          Temizle
-                        </Button>
-                      </Box>
-                    </Collapse>
-                    </Paper>
+                          <Badge 
+                            badgeContent={selectedTables.length} 
+                            color="error" 
+                            sx={{ 
+                              '& .MuiBadge-badge': { 
+                                fontWeight: 800, 
+                                fontSize: '0.85rem',
+                                height: 24,
+                                minWidth: 24,
+                                border: '2.5px solid', 
+                                borderColor: 'background.paper',
+                                transform: 'scale(1) translate(30%, -30%)'
+                              } 
+                            }}
+                          >
+                            <TableRestaurant color="primary" sx={{ fontSize: 32 }} />
+                          </Badge>
+                        </Fab>
+                      </Tooltip>
+                      <Fab
+                        variant="extended"
+                        onClick={(e) => { e.stopPropagation(); handleReserveClick(); }}
+                        sx={{ 
+                          height: 64,
+                          px: 4,
+                          borderRadius: 8,
+                          background: 'linear-gradient(135deg, #e11d2a 0%, #ba1520 100%)',
+                          color: '#fff',
+                          boxShadow: '0 8px 32px rgba(225,29,42,0.4)',
+                          fontWeight: 800,
+                          fontSize: '1.1rem',
+                          textTransform: 'none',
+                          letterSpacing: '0.02em',
+                          animation: 'popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) 0.1s backwards',
+                          transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                          '&:hover': {
+                            transform: 'translateY(-4px)',
+                            boxShadow: '0 12px 40px rgba(225,29,42,0.5)',
+                            background: 'linear-gradient(135deg, #ed2533 0%, #c81925 100%)',
+                          },
+                          '&:active': {
+                            transform: 'translateY(0) scale(0.98)',
+                          }
+                        }}
+                      >
+                        Tamamla <Check sx={{ ml: 1, fontSize: 28 }} />
+                      </Fab>
+                      <style>{`
+                        @keyframes popIn {
+                          0% { transform: scale(0.5); opacity: 0; }
+                          100% { transform: scale(1); opacity: 1; }
+                        }
+                      `}</style>
+                    </Box>
                   </Portal>
                 )}
               </Box>
             </StepContent>
           </Step>
 
-          {/* Adım 3: Onay ve Detaylar */}
-          <Step>
-            <StepLabel>
-              <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>Rezervasyon Onayı</Typography>
-            </StepLabel>
-            <StepContent>
-              <Paper elevation={0} sx={{ p: { xs: 2, md: 3 }, borderRadius: 2, border: '1px solid', borderColor: 'divider', bgcolor: 'background.default' }}>
-                <Stack spacing={3}>
-                  <Alert severity="info">
-                    Rezervasyon talebiniz yönetici onayına gönderilecektir. Onaylandıktan sonra kesinleşecektir.
-                  </Alert>
-
-                  <Box>
-                    <Typography variant="body2" sx={{ color: 'text.secondary', mb: 0.5 }}>Tarih Aralığı</Typography>
-                    <Typography variant="body1" sx={{ fontWeight: 600 }}>
-                      {start.toDate().toLocaleString('tr-TR')} — {end.toDate().toLocaleString('tr-TR')}
-                    </Typography>
-                  </Box>
-
-                  <Box>
-                    <Typography variant="body2" sx={{ color: 'text.secondary', mb: 0.5 }}>Seçili Masalar ({selectedTables.length})</Typography>
-                    <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', gap: 1 }}>
-                      {selectedTables.map((t) => (
-                        <Chip key={t.id} label={`#${t.number} · ${categoryMeta[t.category]?.label ?? t.category}`} size="small" />
-                      ))}
-                    </Stack>
-                  </Box>
-
-                  <Box>
-                    <Typography variant="body2" sx={{ color: 'text.secondary', mb: 0.5 }}>Tahmini Ücret</Typography>
-                    <Stack direction="row" sx={{ alignItems: 'baseline' }} spacing={1}>
-                      <Typography variant="h6" sx={{ fontWeight: 800, color: 'primary.main' }}>
-                        {estimatedTotal.toFixed(0)} ₺
-                      </Typography>
-                      <Typography variant="body2" sx={{ color: 'text.secondary', fontWeight: 600 }}>
-                        ({totalRate.toFixed(0)} ₺ / saat)
-                      </Typography>
-                    </Stack>
-                  </Box>
-
-                  <TextField
-                    label="İletişim Telefonu *"
-                    type="tel"
-                    value={confirmPhone}
-                    onChange={(e) => setConfirmPhone(e.target.value)}
-                    fullWidth
-                    placeholder="05XX XXX XX XX"
-                    error={confirmPhone.length > 0 && confirmPhone.trim().length < 10}
-                    helperText={confirmPhone.length > 0 && confirmPhone.trim().length < 10 ? 'Geçerli telefon numarası girin' : ''}
-                    sx={{ '& .MuiInputBase-root': { bgcolor: 'background.paper' } }}
-                  />
-                  <TextField
-                    label="Not (opsiyonel)"
-                    multiline
-                    minRows={2}
-                    value={confirmNotes}
-                    onChange={(e) => setConfirmNotes(e.target.value)}
-                    fullWidth
-                    placeholder="Rezervasyonunuzla ilgili eklemek istediğiniz not..."
-                    sx={{ '& .MuiInputBase-root': { bgcolor: 'background.paper' } }}
-                  />
-
-                  <Box sx={{ display: 'flex', gap: 2, pt: 1 }}>
-                    <Button 
-                      onClick={() => setActiveStep(1)} 
-                      disabled={submitting} 
-                      sx={{ 
-                        flex: 1, 
-                        fontWeight: 600,
-                        borderRadius: 2,
-                        border: '1px solid',
-                        borderColor: 'divider',
-                        transition: 'all 0.25s ease',
-                        '&:hover': { borderColor: 'primary.main', bgcolor: 'action.hover' },
-                      }}
-                    >
-                      Geri Dön
-                    </Button>
-                    <Button 
-                      variant="contained" 
-                      onClick={handleConfirmReserve} 
-                      disabled={submitting || !confirmPhone.trim() || confirmPhone.trim().length < 10} 
-                      startIcon={submitting ? <CircularProgress size={18} color="inherit" /> : <Send />}
-                      sx={{ 
-                        flex: 2,
-                        boxShadow: '0 4px 15px rgba(225,29,42,0.3)',
-                        fontWeight: 700,
-                        fontSize: '0.95rem',
-                        borderRadius: 2,
-                        py: 1.5,
-                        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                        '&:hover': {
-                          boxShadow: '0 6px 20px rgba(225,29,42,0.45)',
-                          transform: 'translateY(-2px)',
-                        },
-                        '&:active': {
-                          transform: 'translateY(0) scale(0.98)',
-                        },
-                      }}
-                    >
-                      {submitting ? 'Gönderiliyor...' : 'Onayla ve Gönder'}
-                    </Button>
-                  </Box>
-                </Stack>
-              </Paper>
-            </StepContent>
-          </Step>
-
         </Stepper>
       )}
+
+      {/* Sepet Çekmecesi (Drawer) */}
+      <Drawer
+        anchor="bottom"
+        open={cartOpen}
+        onClose={() => setCartOpen(false)}
+        sx={{ 
+          zIndex: 1600,
+          '& .MuiDrawer-paper': {
+            borderTopLeftRadius: 16,
+            borderTopRightRadius: 16,
+            maxHeight: '85vh',
+            bgcolor: 'background.default',
+          }
+        }}
+      >
+        <Box sx={{ p: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid', borderColor: 'divider', bgcolor: 'background.paper' }}>
+          <Typography variant="h6" sx={{ fontWeight: 800, display: 'flex', alignItems: 'center', gap: 1 }}>
+            <TableRestaurant color="primary" /> Rezervasyon Detayları
+          </Typography>
+          <IconButton onClick={() => setCartOpen(false)}>
+            <CloseIcon />
+          </IconButton>
+        </Box>
+        <Box sx={{ p: 2, overflowY: 'auto' }}>
+          {start && end && start.isValid() && end.isValid() && (
+            <Paper elevation={0} sx={{ p: 2, mb: 2, bgcolor: 'action.hover', borderRadius: 2, border: '1px solid', borderColor: 'divider' }}>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>Seçilen Zaman Aralığı</Typography>
+              <Typography variant="body1" sx={{ fontWeight: 700 }}>
+                {start.toDate().toLocaleString('tr-TR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })} — 
+                {end.toDate().toLocaleString('tr-TR', { hour: '2-digit', minute: '2-digit' })}
+              </Typography>
+            </Paper>
+          )}
+          {selectedTables.length === 0 ? (
+            <Alert severity="info">Henüz masa seçilmedi.</Alert>
+          ) : (
+            <Stack spacing={1.5}>
+              {selectedTables.map((t) => (
+                <Paper key={t.id} elevation={0} sx={{ p: 1.5, display: 'flex', justifyContent: 'space-between', alignItems: 'center', border: '1px solid', borderColor: 'divider', borderRadius: 2 }}>
+                  <Box>
+                    <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+                      Masa #{t.number}
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      {t.room?.name || 'Oda'} • {t.room?.floor}. Kat
+                    </Typography>
+                  </Box>
+                  <IconButton size="small" color="error" onClick={() => toggleTable(t)}>
+                    <Delete fontSize="small" />
+                  </IconButton>
+                </Paper>
+              ))}
+            </Stack>
+          )}
+        </Box>
+        <Box sx={{ p: 2, bgcolor: 'background.paper', borderTop: '1px solid', borderColor: 'divider' }}>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2, alignItems: 'baseline' }}>
+            <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>Tahmini Ücret</Typography>
+            <Typography variant="h6" sx={{ fontWeight: 800, color: 'primary.main' }}>
+              {estimatedTotal.toFixed(0)} ₺
+            </Typography>
+          </Box>
+          <Button 
+            variant="contained" 
+            fullWidth 
+            size="large"
+            disabled={selectedTables.length === 0}
+            onClick={() => { setCartOpen(false); handleReserveClick(); }}
+            sx={{ fontWeight: 800, py: 1.5, borderRadius: 2, boxShadow: '0 8px 24px rgba(225,29,42,0.3)' }}
+          >
+            Rezervasyonu Tamamla
+          </Button>
+        </Box>
+      </Drawer>
+
+      {/* Sepet Onay Dialogu */}
+      <Dialog 
+        open={activeStep === 2} 
+        onClose={() => !submitting && setActiveStep(1)}
+        maxWidth="sm"
+        fullWidth
+        sx={{
+          '& .MuiDialog-paper': { borderRadius: 3, p: { xs: 1, sm: 2 } }
+        }}
+      >
+        <DialogTitle sx={{ fontWeight: 800, textAlign: 'center', pb: 1 }}>
+          Rezervasyon Özeti
+        </DialogTitle>
+        <DialogContent>
+          <Stack spacing={3} sx={{ mt: 1 }}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', p: 2, bgcolor: 'action.hover', borderRadius: 2 }}>
+              <Box>
+                <Typography variant="body2" color="text.secondary">Tarih Aralığı</Typography>
+                <Typography variant="body1" sx={{ fontWeight: 700 }}>
+                  {start?.isValid() ? start.toDate().toLocaleString('tr-TR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : '—'} — 
+                  {end?.isValid() ? end.toDate().toLocaleString('tr-TR', { hour: '2-digit', minute: '2-digit' }) : '—'}
+                </Typography>
+              </Box>
+              <Button size="small" onClick={() => setActiveStep(0)}>Düzenle</Button>
+            </Box>
+
+            <Box>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>Seçili Masalar</Typography>
+                <Typography variant="body2" color="text.secondary">{selectedTables.length} Adet</Typography>
+              </Box>
+              <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', gap: 1 }}>
+                {selectedTables.map((t) => (
+                  <Chip key={t.id} label={`#${t.number}`} color="primary" variant="outlined" onDelete={() => toggleTable(t)} />
+                ))}
+              </Stack>
+              {selectedTables.length === 0 && (
+                <Alert severity="warning" sx={{ mt: 1 }}>Masa seçimi yapmadınız!</Alert>
+              )}
+            </Box>
+
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', borderTop: '1px solid', borderColor: 'divider', pt: 2 }}>
+              <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>Tahmini Ücret</Typography>
+              <Typography variant="h5" sx={{ fontWeight: 800, color: 'primary.main' }}>
+                {estimatedTotal.toFixed(0)} ₺
+              </Typography>
+            </Box>
+
+            <Alert severity="info" icon={false} sx={{ py: 0.5 }}>
+              <Typography variant="caption">
+                Rezervasyonunuz yönetici onayından sonra kesinleşecektir.
+              </Typography>
+            </Alert>
+
+            <TextField
+              label="İletişim Telefonu *"
+              type="tel"
+              value={confirmPhone}
+              onChange={(e) => setConfirmPhone(e.target.value)}
+              fullWidth
+              placeholder="05XX XXX XX XX"
+              error={confirmPhone.length > 0 && confirmPhone.trim().length < 10}
+              helperText={confirmPhone.length > 0 && confirmPhone.trim().length < 10 ? 'Geçerli telefon numarası girin' : ''}
+            />
+            <TextField
+              label="Not (opsiyonel)"
+              multiline
+              minRows={2}
+              value={confirmNotes}
+              onChange={(e) => setConfirmNotes(e.target.value)}
+              fullWidth
+              placeholder="Eklemek istediğiniz not..."
+            />
+          </Stack>
+        </DialogContent>
+        <DialogActions sx={{ p: 3, pt: 1, flexDirection: { xs: 'column', sm: 'row' }, gap: 1 }}>
+          <Button 
+            onClick={() => setActiveStep(1)} 
+            disabled={submitting} 
+            fullWidth
+            sx={{ mb: { xs: 1, sm: 0 } }}
+          >
+            İptal
+          </Button>
+          <Button 
+            variant="contained" 
+            onClick={handleConfirmReserve} 
+            disabled={submitting || selectedTables.length === 0 || !confirmPhone.trim() || confirmPhone.trim().length < 10} 
+            startIcon={submitting ? <CircularProgress size={18} color="inherit" /> : <Send />}
+            fullWidth
+            sx={{ fontWeight: 700, py: 1.2 }}
+          >
+            {submitting ? 'Gönderiliyor...' : 'Talebi Gönder'}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }

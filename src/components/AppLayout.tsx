@@ -19,6 +19,7 @@ const pageTitles: Record<string, string> = {
   '/admin/categories': 'Kategori Yönetimi',
   '/admin/reservations': 'Rezervasyonlar',
   '/admin/messages': 'Tüm Mesajlar',
+  '/admin/settings': 'Kafe Ayarları',
 };
 
 function getTitle(pathname: string): string {

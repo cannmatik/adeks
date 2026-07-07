@@ -23,6 +23,7 @@ export interface RoomLite {
   col_span: number;
   row_span: number;
   category: TableCategory | null;
+  short_code?: string | null;
 }
 
 export type BookingStatus = 'AVAILABLE' | 'HOLD' | 'CONFIRMED' | 'IN_USE'

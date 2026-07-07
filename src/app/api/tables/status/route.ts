@@ -20,6 +20,47 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: 'Bitiş başlangıçtan sonra olmalı' }, { status: 400 });
   }
 
+  // Çalışma saatleri kontrolü
+  try {
+    const { data: settings } = await supabase.from('cafe_settings').select('*').eq('id', 'default').single();
+    if (settings && settings.open_time && settings.close_time) {
+      const openMinutes = parseInt(settings.open_time.split(':')[0]) * 60 + parseInt(settings.open_time.split(':')[1]);
+      const closeMinutes = parseInt(settings.close_time.split(':')[0]) * 60 + parseInt(settings.close_time.split(':')[1]);
+      
+      const getTRDate = (isoString: string) => new Date(new Date(isoString).getTime() + 3 * 60 * 60 * 1000);
+      const startTR = getTRDate(start as string);
+      const endTR = getTRDate(end as string);
+      
+      const getCafeDayStartMs = (trDate: Date, openMins: number, closeMins: number) => {
+        const currentMins = trDate.getUTCHours() * 60 + trDate.getUTCMinutes();
+        const dayStart = new Date(Date.UTC(trDate.getUTCFullYear(), trDate.getUTCMonth(), trDate.getUTCDate(), 0, 0, 0));
+        
+        if (closeMins <= openMins) {
+          if (currentMins < closeMins) dayStart.setUTCDate(dayStart.getUTCDate() - 1);
+        } else {
+          if (currentMins < openMins) dayStart.setUTCDate(dayStart.getUTCDate() - 1);
+        }
+        return dayStart.getTime() + openMins * 60 * 1000;
+      };
+
+      const shiftStartMsTR = getCafeDayStartMs(startTR, openMinutes, closeMinutes);
+      const shiftDurationMins = closeMinutes <= openMinutes ? (24 * 60 - openMinutes + closeMinutes) : (closeMinutes - openMinutes);
+      const shiftEndMsTR = shiftStartMsTR + shiftDurationMins * 60 * 1000;
+
+      const startMsTR = startTR.getTime();
+      const endMsTR = endTR.getTime();
+
+      if (startMsTR < shiftStartMsTR || startMsTR >= shiftEndMsTR || endMsTR > shiftEndMsTR) {
+        return NextResponse.json(
+          { error: `Çalışma saatleri dışına veya gün aşırı rezervasyon yapılamaz. (Mesaî: ${settings.open_time} - ${settings.close_time})` },
+          { status: 400 }
+        );
+      }
+    }
+  } catch (e) {
+    console.error('Working hours check error:', e);
+  }
+
   // 1) Çakışan rezervasyonları bul (HOLD + CONFIRMED)
   let overlapQuery = supabase
     .from('reservations')

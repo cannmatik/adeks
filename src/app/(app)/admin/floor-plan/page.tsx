@@ -76,6 +76,7 @@ export default function AdminFloorPlanPage() {
 
   // Room form fields
   const [roomName, setRoomName] = useState('');
+  const [roomShortCode, setRoomShortCode] = useState('');
   const [roomFloor, setRoomFloor] = useState('1');
   const [roomColor, setRoomColor] = useState('#7E7E85');
   const [roomSize, setRoomSize] = useState<'small' | 'medium' | 'large' | 'xlarge'>('medium');
@@ -382,6 +383,7 @@ export default function AdminFloorPlanPage() {
 
   const resetRoomForm = () => {
     setRoomName('');
+    setRoomShortCode('');
     setRoomFloor('1');
     setRoomColor('#7E7E85');
     setRoomSize('medium');
@@ -396,6 +398,7 @@ export default function AdminFloorPlanPage() {
   const openRoomEdit = (room: RoomLite) => {
     setEditRoom(room);
     setRoomName(room.name);
+    setRoomShortCode(room.short_code ?? '');
     setRoomFloor(room.floor ?? '1');
     setRoomColor(room.color ?? '#7E7E85');
     setRoomCategory(room.category ?? '');
@@ -417,6 +420,7 @@ export default function AdminFloorPlanPage() {
       row_span: preset.rows,
       display_order: rooms.length,
       category: roomCategory || null,
+      short_code: roomShortCode || null,
       floor_col: 0,
       floor_row: 0,
     };
@@ -438,6 +442,7 @@ export default function AdminFloorPlanPage() {
       floor: roomFloor,
       color: roomColor,
       category: roomCategory || null,
+      short_code: roomShortCode || null,
     };
     setRooms((prev) => prev.map((r) => (r.id === editRoom.id ? updatedRoom : r)));
     setTables((prev) => prev.map((t) => (t.room?.id === editRoom.id ? { ...t, room: updatedRoom, category: updatedRoom.category || t.category } : t)));
@@ -1103,13 +1108,22 @@ export default function AdminFloorPlanPage() {
         <DialogTitle>Yeni Bölüm Ekle</DialogTitle>
         <DialogContent>
           <Stack spacing={2} sx={{ mt: 1 }}>
-            <TextField
-              label="Bölüm Adı"
-              value={roomName}
-              onChange={(e) => setRoomName(e.target.value)}
-              fullWidth
-              required
-            />
+            <Stack direction="row" spacing={2}>
+              <TextField
+                label="Bölüm Adı"
+                value={roomName}
+                onChange={(e) => setRoomName(e.target.value)}
+                fullWidth
+                required
+              />
+              <TextField
+                label="Kısaltma (örn: GO14)"
+                value={roomShortCode}
+                onChange={(e) => setRoomShortCode(e.target.value)}
+                fullWidth
+                placeholder="Otomatik"
+              />
+            </Stack>
             <Stack direction="row" spacing={2}>
               <TextField
                 label="Kat"
@@ -1185,13 +1199,22 @@ export default function AdminFloorPlanPage() {
         </DialogTitle>
         <DialogContent>
           <Stack spacing={2} sx={{ mt: 1 }}>
-            <TextField
-              label="Bölüm Adı"
-              value={roomName}
-              onChange={(e) => setRoomName(e.target.value)}
-              fullWidth
-              required
-            />
+            <Stack direction="row" spacing={2}>
+              <TextField
+                label="Bölüm Adı"
+                value={roomName}
+                onChange={(e) => setRoomName(e.target.value)}
+                fullWidth
+                required
+              />
+              <TextField
+                label="Kısaltma (örn: GO14)"
+                value={roomShortCode}
+                onChange={(e) => setRoomShortCode(e.target.value)}
+                fullWidth
+                placeholder="Otomatik"
+              />
+            </Stack>
             <Stack direction="row" spacing={2}>
               <TextField
                 label="Kat"

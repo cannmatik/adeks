@@ -37,6 +37,7 @@ import {
   Close,
   Category as CategoryIcon,
   MeetingRoom,
+  Settings,
 } from '@mui/icons-material';
 import { useAuth } from './AuthProvider';
 import { createClient } from '@/lib/supabase/client';
@@ -56,6 +57,7 @@ const adminLinks = [
   { href: '/admin/sections', label: 'Bölüm Yönetimi', icon: <MeetingRoom /> },
   { href: '/admin/categories', label: 'Kategori Yönetimi', icon: <CategoryIcon /> },
   { href: '/admin/reservations', label: 'Rezervasyonlar', icon: <EventAvailable /> },
+  { href: '/admin/settings', label: 'Kafe Ayarları', icon: <Settings /> },
 ];
 
 interface SidebarProps {

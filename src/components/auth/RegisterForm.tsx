@@ -9,8 +9,9 @@ import {
   Alert,
   Fade,
   Box,
+  Divider,
 } from '@mui/material';
-import { Visibility, VisibilityOff } from '@mui/icons-material';
+import { Visibility, VisibilityOff, PersonAdd } from '@mui/icons-material';
 
 interface RegisterFormProps {
   onSwitchToLogin: () => void;
@@ -86,6 +87,7 @@ export default function RegisterForm({ onSwitchToLogin, onRegisterSuccess }: Reg
           value={fullName}
           onChange={(e) => setFullName(e.target.value)}
           slotProps={shrinkProps}
+          placeholder="Adınız Soyadınız"
         />
         <TextField
           label="E-posta"
@@ -95,6 +97,7 @@ export default function RegisterForm({ onSwitchToLogin, onRegisterSuccess }: Reg
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           slotProps={shrinkProps}
+          placeholder="ornek@email.com"
         />
         <TextField
           label="ADEKS Üye No (opsiyonel)"
@@ -103,6 +106,7 @@ export default function RegisterForm({ onSwitchToLogin, onRegisterSuccess }: Reg
           value={adeksMemberNo}
           onChange={(e) => setAdeksMemberNo(e.target.value)}
           slotProps={shrinkProps}
+          placeholder="Varsa üye numaranız"
         />
         <TextField
           label="Şifre"
@@ -111,6 +115,7 @@ export default function RegisterForm({ onSwitchToLogin, onRegisterSuccess }: Reg
           size="small"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
+          placeholder="En az 6 karakter"
           slotProps={{
             inputLabel: { shrink: true },
             input: {
@@ -135,6 +140,7 @@ export default function RegisterForm({ onSwitchToLogin, onRegisterSuccess }: Reg
           size="small"
           value={confirmPassword}
           onChange={(e) => setConfirmPassword(e.target.value)}
+          placeholder="Şifrenizi tekrar girin"
           slotProps={{
             inputLabel: { shrink: true },
             input: {
@@ -160,16 +166,52 @@ export default function RegisterForm({ onSwitchToLogin, onRegisterSuccess }: Reg
         variant="contained"
         size="large"
         disabled={loading}
-        sx={{ mt: 2, py: 1.5 }}
+        startIcon={!loading ? <PersonAdd /> : undefined}
+        sx={{ 
+          mt: 2.5, 
+          py: 1.5,
+          fontSize: '0.95rem',
+          fontWeight: 800,
+          letterSpacing: '0.02em',
+          borderRadius: 2,
+          background: 'linear-gradient(135deg, #E11D2A 0%, #C41822 100%)',
+          boxShadow: '0 4px 16px rgba(225,29,42,0.3)',
+          transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+          '&:hover': {
+            background: 'linear-gradient(135deg, #FF4C58 0%, #E11D2A 100%)',
+            boxShadow: '0 6px 24px rgba(225,29,42,0.45)',
+            transform: 'translateY(-1px)',
+          },
+          '&:active': {
+            transform: 'translateY(0) scale(0.99)',
+          },
+        }}
       >
         {loading ? 'Kaydediliyor...' : 'Kayıt Ol'}
       </Button>
 
-      <Box sx={{ mt: 2, textAlign: 'center' }}>
-        <Button onClick={onSwitchToLogin} sx={{ textTransform: 'none' }}>
-          Zaten hesabınız var mı? Giriş yapın
-        </Button>
-      </Box>
+      <Divider sx={{ my: 2.5, fontSize: '0.75rem', color: 'text.disabled' }}>veya</Divider>
+
+      <Button 
+        onClick={onSwitchToLogin}
+        fullWidth
+        variant="outlined"
+        sx={{ 
+          textTransform: 'none',
+          py: 1.2,
+          fontWeight: 600,
+          borderRadius: 2,
+          borderColor: 'divider',
+          color: 'text.secondary',
+          '&:hover': {
+            borderColor: 'primary.main',
+            color: 'primary.main',
+            bgcolor: 'rgba(225,29,42,0.04)',
+          },
+        }}
+      >
+        Zaten hesabınız var mı? Giriş yapın
+      </Button>
     </form>
   );
 }

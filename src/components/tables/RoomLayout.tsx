@@ -1,8 +1,8 @@
 'use client';
 
 import React, { useMemo, useState, useRef, useEffect, useCallback } from 'react';
-import { Box, Paper, Stack, Tooltip, Typography, useTheme, useMediaQuery, AppBar, Toolbar, IconButton, ButtonBase, Snackbar, Alert, Button, Dialog } from '@mui/material';
-import { ArrowBack, ArrowForward, TableRestaurant, GridView, Map as MapIcon, KeyboardArrowUp, KeyboardArrowDown, KeyboardArrowLeft, KeyboardArrowRight, ZoomIn, Close } from '@mui/icons-material';
+import { Box, Paper, Stack, Tooltip, Typography, useTheme, useMediaQuery, AppBar, Toolbar, IconButton, ButtonBase, Snackbar, Alert, Button, Dialog, Badge } from '@mui/material';
+import { ArrowBack, ArrowForward, TableRestaurant, GridView, Map as MapIcon, KeyboardArrowUp, KeyboardArrowDown, KeyboardArrowLeft, KeyboardArrowRight, ZoomIn, Close, ShoppingCart } from '@mui/icons-material';
 import { useColorScheme } from '@mui/material/styles';
 import { CafeTable, RoomLite } from './TableCard';
 import { useCategories } from '@/components/CategoryProvider';
@@ -12,6 +12,7 @@ interface Props {
   tables: CafeTable[];
   selectedIds?: Set<string>;
   onClickTable?: (t: CafeTable) => void;
+  onCartClick?: () => void;
   disabledIds?: Set<string>;
   floor?: string;
   allowOccupiedClick?: boolean;
@@ -47,7 +48,7 @@ const BOOKING_COLORS: Record<string, { bg: string; fg: string; border: string; l
   MAINTENANCE: { bg: '#52525B', fg: '#FFF', border: '#3F3F46', label: 'Bakımda' },
 };
 
-export default function RoomLayout({ tables, selectedIds, onClickTable, disabledIds, floor, allowOccupiedClick }: Props) {
+export default function RoomLayout({ tables, selectedIds, onClickTable, onCartClick, disabledIds, floor, allowOccupiedClick }: Props) {
   const { categoryMeta } = useCategories();
   const theme = useTheme();
   const { mode } = useColorScheme();
@@ -173,7 +174,7 @@ export default function RoomLayout({ tables, selectedIds, onClickTable, disabled
     const catMeta = g.room.category ? categoryMeta[g.room.category] : null;
     const accent = catMeta?.color ?? g.room.color ?? '#7E7E85';
     const short = catMeta?.short ?? g.room.name?.slice(0, 2).toUpperCase() ?? '??';
-    const sectionLabel = catMeta ? `${short}${g.room.display_order + 1}` : (g.room.name ?? 'Oda');
+    const sectionLabel = g.room.short_code || (catMeta ? `${short}${g.room.display_order + 1}` : (g.room.name ?? 'Oda'));
 
     const gridW = Math.max(g.room.col_span ?? 8, 1, ...g.tables.map((t) => t.position_x + 1));
     const gridH = Math.max(g.room.row_span ?? 5, 1, ...g.tables.map((t) => t.position_y + 1));
@@ -457,39 +458,6 @@ export default function RoomLayout({ tables, selectedIds, onClickTable, disabled
           </Alert>
         </Snackbar>
 
-        {selectedIds && selectedIds.size > 0 && (
-          <Paper
-            elevation={4}
-            sx={{
-              position: 'absolute',
-              bottom: 16,
-              left: 16,
-              right: 16,
-              zIndex: 1300,
-              p: 1.5,
-              borderRadius: 2,
-              border: '1.5px solid',
-              borderColor: 'primary.main',
-              bgcolor: 'background.paper',
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              boxShadow: '0 8px 32px rgba(0,0,0,0.3)',
-            }}
-          >
-            <Typography variant="body2" sx={{ fontWeight: 800 }}>
-              {selectedIds.size} Masa Seçili
-            </Typography>
-            <Button 
-              size="small" 
-              variant="contained" 
-              onClick={() => { setSelectedMobileRoomId(null); setMobileViewMode('LIST'); }}
-              sx={{ fontWeight: 700, borderRadius: 2 }}
-            >
-              Devam Et
-            </Button>
-          </Paper>
-        )}
       </Dialog>
 
       {/* Tam ekran, gezinilebilir kat genel görünümü — tüm bölümler ve masalar */}

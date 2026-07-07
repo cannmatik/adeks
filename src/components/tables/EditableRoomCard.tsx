@@ -44,7 +44,7 @@ export default function EditableRoomCard({
   const catMeta = room.category ? categoryMeta[room.category] : null;
   const accent = catMeta?.color ?? room.color ?? '#7E7E85';
   const short = catMeta?.short ?? room.name?.slice(0, 2).toUpperCase() ?? '??';
-  const sectionLabel = catMeta ? `${short}${room.display_order + 1}` : room.name ?? 'Oda';
+  const sectionLabel = room.short_code || (catMeta ? `${short}${room.display_order + 1}` : room.name ?? 'Oda');
 
   const gridW = Math.max(room.col_span ?? 8, 1, ...tables.map((t) => t.position_x + 1));
   const gridH = Math.max(room.row_span ?? 5, 1, ...tables.map((t) => t.position_y + 1));

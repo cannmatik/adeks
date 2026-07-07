@@ -29,7 +29,7 @@ export async function GET() {
 export async function POST(req: Request) {
   const auth = await requireAdmin();
   if ('error' in auth) return NextResponse.json({ error: auth.error }, { status: auth.status });
-  const { name, description, display_order, color, floor, floor_col, floor_row, col_span, row_span, category } = await req.json();
+  const { name, description, display_order, color, floor, floor_col, floor_row, col_span, row_span, category, short_code } = await req.json();
   if (!name) return NextResponse.json({ error: 'name zorunlu' }, { status: 400 });
   const { data, error } = await auth.supabase
     .from('rooms')
@@ -44,6 +44,7 @@ export async function POST(req: Request) {
       col_span: col_span ?? 4,
       row_span: row_span ?? 3,
       category: category ?? null,
+      short_code: short_code ?? null,
     })
     .select()
     .single();

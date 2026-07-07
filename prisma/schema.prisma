@@ -42,6 +42,7 @@ model Room {
   col_span      Int            @default(4)
   row_span      Int            @default(3)
   category      String?
+  short_code    String?
   created_at    DateTime       @default(now()) @db.Timestamptz(6)
 
   tables Table[]
@@ -225,4 +226,15 @@ model TableStatusLog {
   created_at          DateTime     @default(now()) @db.Timestamptz(6)
 
   @@map("table_status_log")
+}
+
+model CafeSettings {
+  id              String   @id @default("default")
+  login_text      String   @default("Çalışma Saatleri: 07:30 - 02:00")
+  footer_text     String   @default("Adeks İnternet Kafe Online Rezervasyon")
+  open_time       String   @default("07:30")
+  close_time      String   @default("02:00")
+  updated_at      DateTime @default(now()) @updatedAt @db.Timestamptz(6)
+
+  @@map("cafe_settings")
 }

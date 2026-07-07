@@ -374,24 +374,6 @@ export default function ReservationDialog({ open, initialTable, initialTableIds,
               </Typography>
             </Box>
 
-            {loadingAvail ? (
-              <Box sx={{ textAlign: 'center', py: 4 }}>
-                <CircularProgress />
-              </Box>
-            ) : available.length === 0 ? (
-              <Alert severity="warning">
-                Seçtiğin tarih/kategori için müsait masa yok. Bir önceki adıma dön ve seçimleri değiştir.
-              </Alert>
-            ) : (
-              <Box sx={{ maxHeight: 420, overflowY: 'auto', pr: 0.5 }}>
-                <RoomLayout
-                  tables={available}
-                  selectedIds={new Set(selectedTables.map((t) => t.id))}
-                  onClickTable={toggleTable}
-                />
-              </Box>
-            )}
-
             {selectedTables.length > 0 && (
               <Box>
                 <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', mb: 0.5 }}>
@@ -407,6 +389,24 @@ export default function ReservationDialog({ open, initialTable, initialTableIds,
                     />
                   ))}
                 </Stack>
+              </Box>
+            )}
+
+            {loadingAvail ? (
+              <Box sx={{ textAlign: 'center', py: 4 }}>
+                <CircularProgress />
+              </Box>
+            ) : available.length === 0 ? (
+              <Alert severity="warning">
+                Seçtiğin tarih/kategori için müsait masa yok. Bir önceki adıma dön ve seçimleri değiştir.
+              </Alert>
+            ) : (
+              <Box sx={{ maxHeight: 420, overflowY: 'auto', pr: 0.5 }}>
+                <RoomLayout
+                  tables={available}
+                  selectedIds={new Set(selectedTables.map((t) => t.id))}
+                  onClickTable={toggleTable}
+                />
               </Box>
             )}
 
