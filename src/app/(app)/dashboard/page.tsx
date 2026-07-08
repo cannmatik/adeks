@@ -1,14 +1,15 @@
 'use client';
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { Box, Button, Chip, Stack, Typography, Alert, CircularProgress, Paper, TextField, Collapse, IconButton, Stepper, Step, StepLabel, StepContent, FormControl, InputLabel, Select, MenuItem, Portal, Dialog, DialogTitle, DialogContent, DialogActions, Drawer, Badge, Fab, Tooltip, Grid, Accordion, AccordionSummary, AccordionDetails } from '@mui/material';
+import { Box, Button, Chip, Stack, Typography, Alert, CircularProgress, Paper, TextField, Collapse, IconButton, Stepper, Step, StepLabel, StepContent, FormControl, InputLabel, Select, MenuItem, Portal, Dialog, DialogTitle, DialogContent, DialogActions, Drawer, Badge, Fab, Tooltip, Grid, Accordion, AccordionSummary, AccordionDetails, ToggleButtonGroup, ToggleButton } from '@mui/material';
 import { DataGrid, GridColDef } from '@mui/x-data-grid';
-import { EventAvailable, Clear, DateRange, Search, TouchApp, ExpandLess, ExpandMore, CheckCircle, RocketLaunch, Send, ShoppingCart, Check, Close as CloseIcon, Delete, TableRestaurant, AttachMoney } from '@mui/icons-material';
+import { EventAvailable, Clear, DateRange, Search, TouchApp, ExpandLess, ExpandMore, CheckCircle, RocketLaunch, Send, ShoppingCart, Check, Close as CloseIcon, Delete, TableRestaurant, AttachMoney, KeyboardArrowLeft, KeyboardArrowRight } from '@mui/icons-material';
 import { CafeTable } from '@/components/tables/TableCard';
 import RoomLayout, { Legend } from '@/components/tables/RoomLayout';
 import { useColorScheme, useTheme } from '@mui/material/styles';
 import { TableCategory } from '@/lib/categories';
 import { useCategories } from '@/components/CategoryProvider';
+import { createClient } from '@/lib/supabase/client';
 import gsap from 'gsap';
 
 import dayjs, { Dayjs } from 'dayjs';
@@ -34,7 +35,7 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [filter, setFilter] = useState<TableCategory | 'ALL'>('ALL');
-  const [floor, setFloor] = useState<string>('ALL');
+  const [floors, setFloors] = useState<string[]>(['1', '2']);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [start, setStart] = useState<Dayjs>(defaultStart());
   const [end, setEnd] = useState<Dayjs>(defaultEnd());
@@ -210,23 +211,45 @@ export default function DashboardPage() {
     }
   };
 
+  const availableFloors = useMemo(() => {
+    return Array.from(new Set(tables.map((t) => String(t.room?.floor)).filter(f => f && f !== 'undefined' && f !== 'null'))).sort();
+  }, [tables]);
+
   const filtered = useMemo(() => {
     return tables.filter((t) => {
-      if (t.status === 'MAINTENANCE') return false;
-      if (floor !== 'ALL' && t.room?.floor !== floor) return false;
-      if (filter !== 'ALL' && t.category !== filter) return false;
-      return true;
+      const matchCat = filter === 'ALL' || t.category === filter;
+      const tFloor = String(t.room?.floor);
+      const matchFloor = floors.length === 0 || floors.includes(tFloor) || (floors.length === availableFloors.length);
+      return matchCat && matchFloor;
     });
-  }, [tables, filter, floor]);
+  }, [tables, filter, floors, availableFloors]);
 
   useEffect(() => {
     load();
     const interval = setInterval(() => load(), 30000);
-    return () => clearInterval(interval);
+    
+    const supabase = createClient();
+    const channel = supabase.channel('dashboard_updates')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, () => {
+        load();
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'table_sessions' }, () => {
+        load();
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'messages' }, () => {
+        load();
+      })
+      .subscribe();
+
+    return () => {
+      clearInterval(interval);
+      supabase.removeChannel(channel);
+    };
   }, [load]);
 
   const priceRows = dbCategories
     .filter((c) => (categoryMeta[c.name]?.defaultRate ?? 0) > 0)
+    .sort((a, b) => (categoryMeta[a.name]?.defaultRate ?? 0) - (categoryMeta[b.name]?.defaultRate ?? 0))
     .map((c, i) => ({ id: i, ...c }));
 
 
@@ -385,25 +408,59 @@ export default function DashboardPage() {
             <StepContent>
               <Box sx={{ pt: 1, position: 'relative' }}>
                 <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ mb: 3 }}>
-                  <FormControl size="small" fullWidth>
-                    <InputLabel>Kat Seçimi</InputLabel>
-                    <Select value={floor} label="Kat Seçimi" onChange={(e) => setFloor(e.target.value)}>
-                      <MenuItem value="ALL">Tümü</MenuItem>
-                      {Array.from(new Set(tables.map((t) => t.room?.floor).filter(Boolean))).sort().map((f) => (
-                        <MenuItem key={f} value={f}>{f}. Kat</MenuItem>
+                  <Box sx={{ width: '100%' }}>
+                    <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', mb: 0.5, fontWeight: 500, pl: 0.5 }}>
+                      Kat Seçimi
+                    </Typography>
+                    <ToggleButtonGroup
+                      value={floors}
+                      onChange={(e, newFloors) => {
+                        // Prevent deselecting all to avoid empty screen
+                        if (newFloors.length > 0) setFloors(newFloors);
+                      }}
+                      color="primary"
+                      size="small"
+                      fullWidth
+                    >
+                      {availableFloors.map((f) => (
+                        <ToggleButton key={f} value={f} sx={{ fontWeight: 'bold' }}>
+                          {f}. Kat
+                        </ToggleButton>
                       ))}
-                    </Select>
-                  </FormControl>
-                  <FormControl size="small" fullWidth>
-                    <InputLabel>Kategori</InputLabel>
-                    <Select value={filter} label="Kategori" onChange={(e) => setFilter(e.target.value)}>
-                      {categoriesList.map((c) => (
-                        <MenuItem key={c} value={c}>
-                          {c === 'ALL' ? 'Tümü' : (categoryMeta[c]?.label ?? c)}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
+                    </ToggleButtonGroup>
+                  </Box>
+                  <Box sx={{ width: '100%' }}>
+                    <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', mb: 0.5, fontWeight: 500, pl: 0.5 }}>
+                      Kategori
+                    </Typography>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, border: '1px solid', borderColor: 'divider', borderRadius: 1, p: 0.5 }}>
+                      <IconButton 
+                        size="small" 
+                        onClick={() => {
+                          const idx = categoriesList.indexOf(filter);
+                          setFilter(idx > 0 ? categoriesList[idx - 1] : categoriesList[categoriesList.length - 1]);
+                        }}
+                      >
+                        <KeyboardArrowLeft />
+                      </IconButton>
+                      
+                      <Box sx={{ flex: 1, textAlign: 'center' }}>
+                        <Typography sx={{ fontWeight: 'bold', color: 'primary.main' }}>
+                          {filter === 'ALL' ? 'Tümü' : (categoryMeta[filter]?.label ?? filter)}
+                        </Typography>
+                      </Box>
+                      
+                      <IconButton 
+                        size="small" 
+                        onClick={() => {
+                          const idx = categoriesList.indexOf(filter);
+                          setFilter(idx < categoriesList.length - 1 ? categoriesList[idx + 1] : categoriesList[0]);
+                        }}
+                      >
+                        <KeyboardArrowRight />
+                      </IconButton>
+                    </Box>
+                  </Box>
                 </Stack>
 
                 <Box sx={{ mb: 3, pb: 2, borderBottom: '1px solid', borderColor: 'divider', display: { xs: 'none', md: 'block' } }}>
@@ -417,7 +474,7 @@ export default function DashboardPage() {
                 ) : filtered.length === 0 ? (
                   <Alert severity="info">Bu kriterlere uygun masa yok.</Alert>
                 ) : (
-                  <RoomLayout tables={filtered} floor={floor} onClickTable={toggleTable} selectedIds={selectedIds} onCartClick={() => setCartOpen(true)} />
+                  <RoomLayout tables={filtered} floor={floors.length === 1 ? floors[0] : 'ALL'} onClickTable={toggleTable} selectedIds={selectedIds} onCartClick={() => setCartOpen(true)} />
                 )}
 
                 {/* Yüzen Butonlar (Sepet ve Tamamla) */}
@@ -556,7 +613,7 @@ export default function DashboardPage() {
                 <Paper key={t.id} elevation={0} sx={{ p: 1.5, display: 'flex', justifyContent: 'space-between', alignItems: 'center', border: '1px solid', borderColor: 'divider', borderRadius: 2 }}>
                   <Box>
                     <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
-                      Masa #{t.number}
+                      Masa #{t.room?.short_code || ''}{t.number}
                     </Typography>
                     <Typography variant="caption" color="text.secondary">
                       {t.room?.name || 'Oda'} • {t.room?.floor}. Kat
@@ -623,7 +680,7 @@ export default function DashboardPage() {
               </Box>
               <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', gap: 1 }}>
                 {selectedTables.map((t) => (
-                  <Chip key={t.id} label={`#${t.number}`} color="primary" variant="outlined" onDelete={() => toggleTable(t)} />
+                  <Chip key={t.id} label={`#${t.room?.short_code || ''}${t.number}`} color="primary" variant="outlined" onDelete={() => toggleTable(t)} />
                 ))}
               </Stack>
               {selectedTables.length === 0 && (

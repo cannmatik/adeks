@@ -810,7 +810,7 @@ function TableTile({
       title={
         <Box sx={{ p: 0.25 }}>
           <Typography variant="body2" sx={{ fontWeight: 700 }}>
-            Masa #{table.number} — {meta.label}
+            Masa #{table.room?.short_code || ''}{table.number} — {meta.label}
           </Typography>
           <Typography variant="caption" sx={{ display: 'block' }}>
             {BOOKING_COLORS[booking]?.label || 'Müsait'}
@@ -860,7 +860,7 @@ function TableTile({
           ...sx,
         }}
       >
-        {table.number}
+        {table.room?.short_code || ''}{table.number}
       </Box>
     </Tooltip>
   );
@@ -1197,7 +1197,9 @@ export function Legend({ isDark, categoryMeta }: { isDark: boolean; categoryMeta
   const categories = Object.entries(categoryMeta);
   return (
     <Stack direction="row" spacing={2} sx={{ mt: 1, justifyContent: 'center', flexWrap: 'wrap' }}>
-      {categories.map(([key, c]) => (
+      {categories
+        .filter(([key, c]) => c.label !== 'Bahçe' && key !== 'GARDEN')
+        .map(([key, c]) => (
         <LegendDot key={key} color={c.color || '#ccc'} label={c.label || key} isDark={isDark} filled />
       ))}
     </Stack>

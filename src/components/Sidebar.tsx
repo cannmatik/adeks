@@ -56,7 +56,7 @@ const adminLinks = [
   { href: '/admin/floor-plan', label: 'Salon Düzeni', icon: <Map /> },
   { href: '/admin/sections', label: 'Bölüm / Masa Yönetimi', icon: <MeetingRoom /> },
   { href: '/admin/categories', label: 'Kategori Yönetimi', icon: <CategoryIcon /> },
-  { href: '/admin/orders', label: 'Siparişler', icon: <RestaurantMenu /> },
+  { href: '/admin/menu', label: 'Menü Yönetimi', icon: <RestaurantMenu /> },
   { href: '/admin/reservations', label: 'Rezervasyonlar', icon: <EventAvailable /> },
   { href: '/admin/users', label: 'Kullanıcılar', icon: <Person /> },
   { href: '/admin/settings', label: 'Kafe Ayarları', icon: <Settings /> },

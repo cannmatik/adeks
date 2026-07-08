@@ -110,7 +110,7 @@ export async function POST(req: Request) {
       await supabase.from('messages').insert({
         conversation_id: conversation.id,
         sender_id: user.id,
-        content: `Masa ${session.tables?.number || session.table_id} sipariş verdi: ${orderItemsData.length} çeşit ürün (Toplam: ₺${total_amount}). Lütfen Siparişler sekmesini kontrol edin.`
+        content: `Masa ${session.tables?.number || session.table_id} sipariş verdi: ${orderItemsData.length} çeşit ürün (Toplam: ₺${total_amount}). Lütfen masa detay penceresinden siparişi kontrol edin.`
       });
     }
   } catch (err) {

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { Alert, Box, Button, Chip, CircularProgress, Dialog, DialogActions, DialogContent, DialogTitle, IconButton, MenuItem, Stack, TextField, Typography, List, ListItem, ListItemText, Paper, Badge, Divider, Autocomplete, ToggleButton, ToggleButtonGroup } from '@mui/material';
 import { DataGrid, GridColDef, GridToolbarQuickFilter } from '@mui/x-data-grid';
@@ -123,15 +123,20 @@ export default function AdminSessionsPage() {
 
   useEffect(() => { load(); }, []);
 
+  const loadRef = useRef(load);
+  loadRef.current = load;
+
   useEffect(() => {
     const ch = supabase
       .channel('admin-sessions-tables')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'table_sessions' }, () => load(true))
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'tables' }, () => load(true))
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'reservations' }, () => load(true))
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'messages' }, () => load(true))
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, () => load(true))
-      .subscribe();
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'table_sessions' }, () => loadRef.current(true))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'tables' }, () => loadRef.current(true))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'reservations' }, () => loadRef.current(true))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'messages' }, () => loadRef.current(true))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, () => loadRef.current(true))
+      .subscribe((status) => {
+        console.log('[Realtime] admin-sessions-tables channel status:', status);
+      });
     return () => { supabase.removeChannel(ch); };
   }, []);
 
@@ -139,6 +144,28 @@ export default function AdminSessionsPage() {
     const map = new Map<string, ActiveSession>();
     for (const s of sessions) map.set(s.table_id, s);
     return map;
+  }, [sessions]);
+
+  // Keep open SessionDetailsDialog in sync when sessions update via realtime
+  useEffect(() => {
+    if (sessionDetails) {
+      const updatedS = sessions.find(s => s.id === sessionDetails.id);
+      if (updatedS) {
+        // Only update if orders or support status changed to avoid unnecessary re-renders
+        setSessionDetails((prev: any) => {
+          if (!prev) return prev;
+          const ordersChanged = JSON.stringify(prev.orders) !== JSON.stringify(updatedS.orders);
+          const supportChanged = prev.needs_support !== updatedS.needs_support;
+          if (ordersChanged || supportChanged) {
+            return { ...updatedS, table: prev.table };
+          }
+          return prev;
+        });
+      } else {
+        // Session might have been ended
+        setSessionDetails(null);
+      }
+    }
   }, [sessions]);
 
   const layoutTables = useMemo(() => {

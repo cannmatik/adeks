@@ -177,7 +177,8 @@ export default function SessionPage() {
 
 
   return (
-    <Box sx={{ p: { xs: 2, md: 4 }, maxWidth: 1200, margin: '0 auto' }}>
+    <Box sx={{ pb: Object.keys(cart).length > 0 ? 12 : 0 }}>
+      <Box sx={{ p: { xs: 2, md: 4 }, maxWidth: 1200, margin: '0 auto' }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
         <Typography variant="h4" sx={{ fontWeight: 'bold' }}>Sipariş Ekranı</Typography>
         <Box sx={{ display: 'flex', gap: 2 }}>
@@ -280,15 +281,21 @@ export default function SessionPage() {
       <Dialog open={cartOpen} onClose={() => setCartOpen(false)} fullWidth maxWidth="sm">
         <DialogTitle sx={{ p: 0 }}>
           <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
-            <Tabs value={rightTab} onChange={(e, v) => setRightTab(v)} variant="fullWidth">
-              <Tab label="Sepetim" />
-              <Tab label="Siparişlerim" />
+            <Tabs 
+              value={rightTab} 
+              onChange={(e, v) => setRightTab(v)} 
+              variant="fullWidth"
+              textColor="primary"
+              indicatorColor="primary"
+            >
+              <Tab label="Şu Anki Sepetim" sx={{ fontWeight: 'bold', py: 2 }} />
+              <Tab label="Geçmiş Siparişlerim" sx={{ fontWeight: 'bold', py: 2 }} />
             </Tabs>
           </Box>
         </DialogTitle>
         <DialogContent sx={{ p: 3 }}>
           {rightTab === 0 ? (
-            <Box>
+            <Box sx={{ pt: 1 }}>
               {Object.keys(cart).length === 0 ? (
                 <Typography sx={{ color: 'text.secondary', textAlign: 'center', py: 4 }}>Sepetiniz boş.</Typography>
               ) : (
@@ -297,9 +304,9 @@ export default function SessionPage() {
                     const item = menuItems.find(m => m.id === id);
                     if (!item) return null;
                     return (
-                      <Box key={id} sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                        <Typography variant="body2">{qty}x {item.name}</Typography>
-                        <Typography variant="body2">₺{(item.price * qty).toFixed(2)}</Typography>
+                      <Box key={id} sx={{ display: 'flex', justifyContent: 'space-between', mb: 1.5, p: 1.5, bgcolor: 'action.hover', borderRadius: 2 }}>
+                        <Typography variant="body1" sx={{ fontWeight: 500 }}>{qty}x {item.name}</Typography>
+                        <Typography variant="body1" sx={{ fontWeight: 'bold' }}>₺{(item.price * qty).toFixed(2)}</Typography>
                       </Box>
                     );
                   })}
@@ -316,7 +323,7 @@ export default function SessionPage() {
                     disabled={submitting}
                     onClick={handleOrder}
                   >
-                    {submitting ? <CircularProgress size={24} color="inherit" /> : 'Siparişi Ver (Hesaba Yaz)'}
+                    {submitting ? <CircularProgress size={24} color="inherit" /> : 'Siparişi Onayla'}
                   </Button>
                 </Box>
               )}
@@ -353,6 +360,43 @@ export default function SessionPage() {
         </DialogActions>
       </Dialog>
 
+      {/* Sticky Bottom Cart Bar */}
+      {Object.keys(cart).length > 0 && (
+        <Box 
+          sx={{ 
+            position: 'fixed', 
+            bottom: 0, 
+            left: 0, 
+            right: 0, 
+            p: 2, 
+            bgcolor: 'background.paper', 
+            borderTop: '1px solid', 
+            borderColor: 'divider',
+            boxShadow: '0 -4px 20px rgba(0,0,0,0.1)',
+            zIndex: 1000,
+            display: 'flex',
+            justifyContent: 'center'
+          }}
+        >
+          <Box sx={{ maxWidth: 1200, width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <Box>
+              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>Ara Toplam ({Object.keys(cart).length} Çeşit)</Typography>
+              <Typography variant="h5" color="primary.main" sx={{ fontWeight: 900 }}>₺{cartTotal.toFixed(2)}</Typography>
+            </Box>
+            <Button 
+              variant="contained" 
+              color="primary" 
+              size="large"
+              startIcon={<ShoppingCart />}
+              onClick={() => { setRightTab(0); setCartOpen(true); }}
+              sx={{ fontWeight: 800, py: 1.5, px: 4, borderRadius: 2, boxShadow: '0 8px 24px rgba(225,29,42,0.3)' }}
+            >
+              Sepete Git
+            </Button>
+          </Box>
+        </Box>
+      )}
+
       {/* Support Dialog */}
       <Dialog open={supportOpen} onClose={() => !sendingSupport && setSupportOpen(false)} fullWidth maxWidth="sm">
         <DialogTitle>Teknik Servis Çağır</DialogTitle>
@@ -384,7 +428,7 @@ export default function SessionPage() {
           <Button onClick={() => setSupportOpen(false)} color="inherit" disabled={sendingSupport}>İptal</Button>
           <Button 
             onClick={handleSupport} 
-            color="warning" 
+            color="info" 
             variant="contained" 
             disabled={!supportMessage.trim() || sendingSupport}
             endIcon={sendingSupport ? <CircularProgress size={16} color="inherit" /> : <SendIcon />}
@@ -397,6 +441,7 @@ export default function SessionPage() {
       <Snackbar open={notification.open} autoHideDuration={6000} onClose={() => setNotification({ ...notification, open: false })}>
         <Alert severity={notification.severity} sx={{ width: '100%' }}>{notification.message}</Alert>
       </Snackbar>
+    </Box>
     </Box>
   );
 }
