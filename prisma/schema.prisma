@@ -14,6 +14,7 @@ model Profile {
   phone                    String?
   adeks_member_no          String?   @unique
   role                     String    @default("customer")
+  is_banned                Boolean   @default(false)
   email_verified           Boolean   @default(false)
   verification_otp         String?
   verification_otp_expires DateTime? @db.Timestamptz(6)

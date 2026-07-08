@@ -56,16 +56,20 @@ const adminLinks = [
   { href: '/admin/sections', label: 'Bölüm / Masa Yönetimi', icon: <MeetingRoom /> },
   { href: '/admin/categories', label: 'Kategori Yönetimi', icon: <CategoryIcon /> },
   { href: '/admin/reservations', label: 'Rezervasyonlar', icon: <EventAvailable /> },
+  { href: '/admin/users', label: 'Kullanıcılar', icon: <Person /> },
   { href: '/admin/settings', label: 'Kafe Ayarları', icon: <Settings /> },
 ];
+
+import { SxProps, Theme } from '@mui/material/styles';
 
 interface SidebarProps {
   mobileOpen?: boolean;
   onMobileClose?: () => void;
   variant?: 'permanent' | 'temporary';
+  sx?: SxProps<Theme>;
 }
 
-export default function Sidebar({ mobileOpen = false, onMobileClose, variant = 'permanent' }: SidebarProps) {
+export default function Sidebar({ mobileOpen = false, onMobileClose, variant = 'permanent', sx }: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
   const { role, user } = useAuth();
@@ -211,6 +215,7 @@ export default function Sidebar({ mobileOpen = false, onMobileClose, variant = '
           width: DRAWER_WIDTH,
           flexShrink: 0,
           '& .MuiDrawer-paper': { width: DRAWER_WIDTH, boxSizing: 'border-box', borderRight: 1, borderColor: 'divider' },
+          ...sx
         }}
       >
         {drawerContent}

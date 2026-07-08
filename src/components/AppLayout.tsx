@@ -36,11 +36,6 @@ export default function AppLayout({ children, title }: { children: ReactNode; ti
   const pathname = usePathname();
   const pageTitle = title || getTitle(pathname);
 
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
   const handleDrawerToggle = () => {
     setMobileOpen(!mobileOpen);
   };
@@ -49,18 +44,17 @@ export default function AppLayout({ children, title }: { children: ReactNode; ti
     setMobileOpen(false);
   };
 
-  if (!mounted) {
-    return <Box sx={{ display: 'flex', minHeight: '100vh', bgcolor: 'background.default' }} />;
-  }
-
   return (
     <Box sx={{ display: 'flex', minHeight: '100vh', bgcolor: 'background.default' }}>
       {/* Desktop: permanent drawer */}
-      {isDesktop && <Sidebar variant="permanent" />}
+      <Sidebar variant="permanent" sx={{ display: { xs: 'none', md: 'block' } }} />
       {/* Mobile: temporary drawer */}
-      {!isDesktop && (
-        <Sidebar variant="temporary" mobileOpen={mobileOpen} onMobileClose={handleDrawerClose} />
-      )}
+      <Sidebar
+        variant="temporary"
+        mobileOpen={mobileOpen}
+        onMobileClose={handleDrawerClose}
+        sx={{ display: { xs: 'block', md: 'none' } }}
+      />
 
       <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
         <AppBar
