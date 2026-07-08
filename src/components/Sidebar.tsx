@@ -38,6 +38,7 @@ import {
   Category as CategoryIcon,
   MeetingRoom,
   Settings,
+  RestaurantMenu,
 } from '@mui/icons-material';
 import { useAuth } from './AuthProvider';
 import { createClient } from '@/lib/supabase/client';
@@ -55,6 +56,7 @@ const adminLinks = [
   { href: '/admin/floor-plan', label: 'Salon Düzeni', icon: <Map /> },
   { href: '/admin/sections', label: 'Bölüm / Masa Yönetimi', icon: <MeetingRoom /> },
   { href: '/admin/categories', label: 'Kategori Yönetimi', icon: <CategoryIcon /> },
+  { href: '/admin/orders', label: 'Siparişler', icon: <RestaurantMenu /> },
   { href: '/admin/reservations', label: 'Rezervasyonlar', icon: <EventAvailable /> },
   { href: '/admin/users', label: 'Kullanıcılar', icon: <Person /> },
   { href: '/admin/settings', label: 'Kafe Ayarları', icon: <Settings /> },
@@ -81,6 +83,7 @@ export default function Sidebar({ mobileOpen = false, onMobileClose, variant = '
   const [saving, setSaving] = useState(false);
   const [profileError, setProfileError] = useState('');
   const [changePasswordOpen, setChangePasswordOpen] = useState(false);
+  const [hasActiveSession, setHasActiveSession] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -95,6 +98,17 @@ export default function Sidebar({ mobileOpen = false, onMobileClose, variant = '
             setAdeksMemberNo(data.adeks_member_no ?? '');
           }
         });
+
+      fetch('/api/session/active')
+        .then(res => res.json())
+        .then(data => {
+          if (data.session) {
+            setHasActiveSession(true);
+          } else {
+            setHasActiveSession(false);
+          }
+        })
+        .catch(err => console.error('Error checking active session:', err));
     }
   }, [user, supabase]);
 
@@ -148,11 +162,34 @@ export default function Sidebar({ mobileOpen = false, onMobileClose, variant = '
                 selected={pathname === l.href || pathname.startsWith(l.href + '/')}
                 onClick={variant === 'temporary' ? onMobileClose : undefined}
               >
-                <ListItemIcon sx={{ minWidth: 36 }}>{l.icon}</ListItemIcon>
+                <ListItemIcon sx={{ minWidth: 40, color: 'inherit' }}>{l.icon}</ListItemIcon>
                 <ListItemText primary={l.label} />
               </ListItemButton>
             </ListItem>
           ))}
+          {hasActiveSession && (
+            <ListItem disablePadding>
+              <ListItemButton
+                component={Link}
+                href="/session"
+                selected={pathname === '/session'}
+                onClick={variant === 'temporary' ? onMobileClose : undefined}
+                sx={{
+                  bgcolor: (theme) => theme.palette.mode === 'dark' ? 'rgba(76, 175, 80, 0.15)' : 'rgba(76, 175, 80, 0.1)',
+                  color: 'success.main',
+                  '&:hover': {
+                    bgcolor: (theme) => theme.palette.mode === 'dark' ? 'rgba(76, 175, 80, 0.25)' : 'rgba(76, 175, 80, 0.2)',
+                  },
+                  borderRadius: 1,
+                  mb: 1,
+                  mt: 1
+                }}
+              >
+                <ListItemIcon sx={{ minWidth: 40, color: 'inherit' }}><RestaurantMenu /></ListItemIcon>
+                <ListItemText primary={<Typography sx={{ fontWeight: 'bold' }}>Aktif Oturum & Sipariş</Typography>} />
+              </ListItemButton>
+            </ListItem>
+          )}
         </List>
 
         {['admin', 'super_admin'].includes(role || '') && (

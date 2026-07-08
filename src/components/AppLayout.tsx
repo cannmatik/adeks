@@ -46,14 +46,11 @@ export default function AppLayout({ children, title }: { children: ReactNode; ti
 
   return (
     <Box sx={{ display: 'flex', minHeight: '100vh', bgcolor: 'background.default' }}>
-      {/* Desktop: permanent drawer */}
-      <Sidebar variant="permanent" sx={{ display: { xs: 'none', md: 'block' } }} />
-      {/* Mobile: temporary drawer */}
+      {/* Temporary drawer for all screen sizes */}
       <Sidebar
         variant="temporary"
         mobileOpen={mobileOpen}
         onMobileClose={handleDrawerClose}
-        sx={{ display: { xs: 'block', md: 'none' } }}
       />
 
       <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
@@ -65,22 +62,20 @@ export default function AppLayout({ children, title }: { children: ReactNode; ti
             bgcolor: 'background.default',
             borderBottom: 1,
             borderColor: 'divider',
-            width: { md: `calc(100% - 240px)` },
-            ml: { md: '240px' },
+            width: '100%',
+            ml: 0,
           }}
         >
           <Toolbar sx={{ justifyContent: 'space-between' }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              {!isDesktop && (
-                <IconButton
-                  color="inherit"
-                  aria-label="open drawer"
-                  edge="start"
-                  onClick={handleDrawerToggle}
-                >
-                  <MenuIcon />
-                </IconButton>
-              )}
+              <IconButton
+                color="inherit"
+                aria-label="open drawer"
+                edge="start"
+                onClick={handleDrawerToggle}
+              >
+                <MenuIcon />
+              </IconButton>
               <Typography variant="h6" sx={{ fontWeight: 600 }}>
                 {pageTitle}
               </Typography>

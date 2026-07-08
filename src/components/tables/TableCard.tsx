@@ -1,7 +1,7 @@
 'use client';
 
 import { Box, Button, Card, CardContent, Chip, Stack, Typography } from '@mui/material';
-import { Bolt } from '@mui/icons-material';
+import { Bolt, SupportAgent, RoomService } from '@mui/icons-material';
 import {
   STATUS_COLOR,
   STATUS_LABEL,
@@ -45,6 +45,8 @@ export interface CafeTable {
     user_name?: string | null;
     elapsed?: string;
     estimated?: string;
+    needs_support?: boolean;
+    has_pending_order?: boolean;
   } | null;
 }
 
@@ -65,13 +67,24 @@ export default function TableCard({ table, onReserve, disabled, compact }: Props
   };
   const isAvailable = table.status === 'AVAILABLE';
   const rate = table.hourly_rate != null ? Number(table.hourly_rate) : meta.defaultRate;
+  let borderColor = meta.color + '40';
+  let gradientColor = meta.color;
+  
+  if (table.session?.needs_support) {
+    borderColor = '#EF4444'; // Red
+    gradientColor = '#EF4444';
+  } else if (table.session?.has_pending_order) {
+    borderColor = '#F59E0B'; // Amber
+    gradientColor = '#F59E0B';
+  }
 
   return (
     <Card
       sx={{
         position: 'relative',
         overflow: 'hidden',
-        borderColor: meta.color + '40',
+        borderColor: borderColor,
+        borderWidth: (table.session?.needs_support || table.session?.has_pending_order) ? 2 : 1,
         '&:hover': isAvailable ? { transform: 'translateY(-2px)' } : undefined,
       }}
     >
@@ -82,7 +95,7 @@ export default function TableCard({ table, onReserve, disabled, compact }: Props
           left: 0,
           right: 0,
           height: 4,
-          background: `linear-gradient(90deg, ${meta.color}, ${meta.color}55)`,
+          background: `linear-gradient(90deg, ${gradientColor}, ${gradientColor}55)`,
         }}
       />
       <CardContent sx={{ pt: compact ? 2 : 3, pb: compact ? 1.5 : undefined }}>
@@ -94,6 +107,12 @@ export default function TableCard({ table, onReserve, disabled, compact }: Props
             <Typography variant={compact ? 'h4' : 'h3'} sx={{ fontWeight: 800, lineHeight: 1, color: meta.color }}>
               {table.number}
             </Typography>
+            {table.session?.needs_support && (
+              <Chip size="small" icon={<SupportAgent fontSize="small" />} label="Destek Talebi" color="error" sx={{ mt: 0.5, fontWeight: 'bold' }} />
+            )}
+            {table.session?.has_pending_order && !table.session?.needs_support && (
+              <Chip size="small" icon={<RoomService fontSize="small" />} label="Yeni Sipariş" color="warning" sx={{ mt: 0.5, fontWeight: 'bold' }} />
+            )}
           </Box>
           <Stack spacing={1} sx={{ alignItems: 'flex-end' }}>
             <CategoryBadge category={table.category} />

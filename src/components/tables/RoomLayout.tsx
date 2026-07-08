@@ -752,7 +752,17 @@ function TableTile({
   let border = meta.color;
   let shadow = '0 1px 2px rgba(0,0,0,0.06)';
 
-  if (booking === 'HOLD') {
+  if (table.session?.needs_support) {
+    bg = isDark ? '#450A0A' : '#FEE2E2';
+    fg = isDark ? '#FCA5A5' : '#DC2626';
+    border = '#EF4444';
+    shadow = '0 0 0 3px rgba(239,68,68,0.5), 0 4px 14px rgba(239,68,68,0.4)';
+  } else if (table.session?.has_pending_order) {
+    bg = isDark ? '#451A03' : '#FEF3C7';
+    fg = isDark ? '#FCD34D' : '#D97706';
+    border = '#F59E0B';
+    shadow = '0 0 0 3px rgba(245,158,11,0.5), 0 4px 14px rgba(245,158,11,0.4)';
+  } else if (booking === 'HOLD') {
     bg = isDark ? '#451A03' : '#FEF3C7';
     fg = isDark ? '#FCD34D' : '#92400E';
     border = '#F59E0B';

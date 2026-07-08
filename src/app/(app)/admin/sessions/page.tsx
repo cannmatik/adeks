@@ -1,31 +1,14 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import {
-  Alert,
-  Box,
-  Button,
-  Chip,
-  CircularProgress,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
-  IconButton,
-  MenuItem,
-  Stack,
-  TextField,
-  Typography,
-  List,
-  ListItem,
-  ListItemText,
-  Paper,
-  Badge,
-} from '@mui/material';
-import { Refresh, ViewSidebar, Event, AccessTime, MarkChatUnread, ChatBubbleOutlined, InfoOutlined } from '@mui/icons-material';
+
+import { Alert, Box, Button, Chip, CircularProgress, Dialog, DialogActions, DialogContent, DialogTitle, IconButton, MenuItem, Stack, TextField, Typography, List, ListItem, ListItemText, Paper, Badge, Divider, Autocomplete, ToggleButton, ToggleButtonGroup } from '@mui/material';
+import { DataGrid, GridColDef, GridToolbarQuickFilter } from '@mui/x-data-grid';
+import { Refresh, ViewSidebar, Event, AccessTime, MarkChatUnread, ChatBubbleOutlined, InfoOutlined, SupportAgent, RoomService, ReportProblem } from '@mui/icons-material';
 import ReservationDetails from '@/components/admin/ReservationDetails';
 import { createClient } from '@/lib/supabase/client';
 import RoomLayout from '@/components/tables/RoomLayout';
+import SessionDetailsDialog from '@/components/admin/SessionDetailsDialog';
 import { CafeTable } from '@/components/tables/TableCard';
 import { useCategories } from '@/components/CategoryProvider';
 import ReservationMessagesDialog from '@/components/reservations/ReservationMessagesDialog';
@@ -40,6 +23,9 @@ interface ActiveSession {
   started_at: string;
   hourly_rate_snapshot: number | string | null;
   user: { id: string; full_name: string | null; email: string | null } | null;
+  needs_support?: boolean;
+  support_message: string | null;
+  orders?: any[];
 }
 
 interface ProfileLite {
@@ -63,6 +49,7 @@ export default function AdminSessionsPage() {
   const [tables, setTables] = useState<CafeTable[]>([]);
   const [sessions, setSessions] = useState<ActiveSession[]>([]);
   const [members, setMembers] = useState<ProfileLite[]>([]);
+  const [menuItems, setMenuItems] = useState<any[]>([]);
   const [reservations, setReservations] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -83,6 +70,7 @@ export default function AdminSessionsPage() {
   const [memberId, setMemberId] = useState('');
   const [anonLabel, setAnonLabel] = useState('Misafir');
   const [saving, setSaving] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
 
   const [resDialogLoading, setResDialogLoading] = useState(false);
   const [resDialogError, setResDialogError] = useState('');
@@ -90,19 +78,23 @@ export default function AdminSessionsPage() {
   const [msgOpen, setMsgOpen] = useState(false);
   const [msgReservationId, setMsgReservationId] = useState<string | null>(null);
   const [detailsData, setDetailsData] = useState<any>(null);
+  const [sessionDetails, setSessionDetails] = useState<any>(null);
 
   const load = async (silent = false) => {
     if (!silent) setLoading(true);
     setError('');
-    const [tRes, sRes, mRes, rRes] = await Promise.all([
+    const [tRes, sRes, mRes, rRes, menuRes] = await Promise.all([
       fetch('/api/tables'),
       fetch('/api/sessions?active=1'),
       supabase.from('profiles').select('id, full_name, email').eq('role', 'customer'),
-      fetch('/api/reservations?scope=all')
+      fetch('/api/reservations?scope=all'),
+      supabase.from('cafe_menu_items').select('id, name, price, category, code')
     ]);
     const tData = await tRes.json();
     const sData = await sRes.json();
     const rData = rRes.ok ? await rRes.json() : { reservations: [] };
+    
+    if (menuRes.data) setMenuItems(menuRes.data);
     
     if (!tRes.ok) setError(tData.error);
     else setTables(tData.tables);
@@ -138,6 +130,7 @@ export default function AdminSessionsPage() {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'tables' }, () => load(true))
       .on('postgres_changes', { event: '*', schema: 'public', table: 'reservations' }, () => load(true))
       .on('postgres_changes', { event: '*', schema: 'public', table: 'messages' }, () => load(true))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, () => load(true))
       .subscribe();
     return () => { supabase.removeChannel(ch); };
   }, []);
@@ -148,15 +141,17 @@ export default function AdminSessionsPage() {
     return map;
   }, [sessions]);
 
-  // Masaları RoomLayout için hazırla
   const layoutTables = useMemo(() => {
     return tables.map((t) => {
       const s = sessionsByTable.get(t.id);
       const rate = Number(s?.hourly_rate_snapshot ?? (categoryMeta[t.category]?.defaultRate ?? 0));
       const ms = s ? Date.now() - new Date(s.started_at).getTime() : 0;
       const estimated = s ? Math.round((ms / 3_600_000) * rate) : 0;
+      const ordersTotal = (s && (s as any).orders) ? (s as any).orders.reduce((sum: number, o: any) => o.status !== 'CANCELLED' ? sum + Number(o.total_amount) : sum, 0) : 0;
+      const totalCost = estimated + ordersTotal;
+      const hasPendingOrder = (s && (s as any).orders) ? (s as any).orders.some((o: any) => o.status === 'PENDING') : false;
+      const needsSupport = s?.needs_support ?? false;
       
-      // Sadece şu an devam eden veya 1 saat içinde başlayacak rezervasyonları haritada göster
       const nowMs = Date.now();
       const tReservations = reservations.filter((r) => {
         if (!r.tables?.some((rt: any) => rt.table?.id === t.id)) return false;
@@ -169,7 +164,6 @@ export default function AdminSessionsPage() {
       if (s) {
         booking_status = 'IN_USE';
       } else if (tReservations.length > 0) {
-        // En yakındaki rezervasyonu al
         booking_status = tReservations[0].status;
       } else if (t.status === 'MAINTENANCE') {
         booking_status = 'MAINTENANCE';
@@ -182,7 +176,9 @@ export default function AdminSessionsPage() {
           kind: s.kind,
           user_name: s.kind === 'MEMBER' ? (s.user?.full_name || s.user?.email) : (s.anonymous_label || 'Misafir'),
           elapsed: elapsed(s.started_at),
-          estimated: estimated > 0 ? `${estimated} ₺` : '0 ₺',
+          estimated: totalCost > 0 ? `${totalCost} ₺` : '0 ₺',
+          needs_support: needsSupport,
+          has_pending_order: hasPendingOrder,
         } : null,
       } as CafeTable;
     });
@@ -191,10 +187,7 @@ export default function AdminSessionsPage() {
   const handleTableClick = (t: CafeTable) => {
     const s = sessionsByTable.get(t.id);
     if (s) {
-      const name = s.kind === 'MEMBER' ? (s.user?.full_name || s.user?.email) : (s.anonymous_label || 'Misafir');
-      if (confirm(`Masa #${t.number} kapatılsın mı?\n${s.kind === 'MEMBER' ? 'Üye' : 'Anonim'}: ${name}`)) {
-        endSession(s.id);
-      }
+      setSessionDetails({ ...s, table: t });
     } else if (t.status !== 'MAINTENANCE') {
       openStartDialog(t);
     }
@@ -244,6 +237,69 @@ export default function AdminSessionsPage() {
     else setError((await res.json()).error);
   };
 
+  const updateOrderStatus = async (orderId: string, status: string) => {
+    try {
+      await fetch('/api/orders', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ order_id: orderId, status })
+      });
+      setSessionDetails((prev: any) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          orders: prev.orders.map((ord: any) => ord.id === orderId ? { ...ord, status } : ord)
+        };
+      });
+      load();
+    } catch(err) {
+      console.error(err);
+    }
+  };
+
+  const handleResolveSupport = async (sessionId: string) => {
+    try {
+      await fetch(`/api/sessions/${sessionId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ needs_support: false })
+      });
+      setSessionDetails((prev: any) => ({ ...prev, needs_support: false }));
+      load();
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleAddOrder = async (sessionId: string, menuItemId: string, quantity: number): Promise<boolean> => {
+    try {
+      const res = await fetch('/api/orders', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          session_id: sessionId,
+          items: [{ menu_item_id: menuItemId, quantity }],
+          notes: 'Admin tarafından eklendi'
+        })
+      });
+      if (res.ok) {
+        load();
+        // Refetch session details to show the new order immediately
+        const sRes = await fetch('/api/sessions?active=1');
+        const sData = await sRes.json();
+        const updatedSess = sData.sessions?.find((s: any) => s.id === sessionId);
+        if (updatedSess) {
+          setSessionDetails((prev: any) => ({ ...updatedSess, table: prev?.table }));
+        }
+        return true;
+      }
+      return false;
+    } catch (err) {
+      console.error(err);
+      return false;
+    }
+  };
+
   const handleReservationAction = async (id: string, status: 'CONFIRMED' | 'CANCELLED') => {
     setResDialogLoading(true);
     setResDialogError('');
@@ -290,7 +346,6 @@ export default function AdminSessionsPage() {
     setResDialogLoading(true);
     setResDialogError('');
     try {
-      // 1. Her bir masa için session başlat
       const promises = reservation.tables.map((rt: any) => 
         fetch('/api/sessions', {
           method: 'POST',
@@ -311,7 +366,6 @@ export default function AdminSessionsPage() {
         }
       }
 
-      // 2. Rezervasyon durumunu COMPLETED yap (aynı zamanda telefonu silecek)
       const patchRes = await fetch(`/api/reservations/${reservation.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
@@ -352,7 +406,6 @@ export default function AdminSessionsPage() {
       {error && <Alert severity="error" sx={{ mb: 2, flexShrink: 0 }} onClose={() => setError('')}>{error}</Alert>}
 
       <Box sx={{ display: 'flex', flexGrow: 1, gap: 3, minHeight: 0, flexDirection: { xs: 'column', md: 'row' } }}>
-        {/* Main Area: RoomLayout */}
         <Box sx={{ flexGrow: 1, overflow: 'auto', pr: { md: 1 } }}>
           {loading ? (
             <Box sx={{ textAlign: 'center', py: 8 }}>
@@ -363,7 +416,6 @@ export default function AdminSessionsPage() {
           )}
         </Box>
 
-        {/* Sidebar Panel */}
         {sidebarOpen && (
           <Paper
             elevation={0}
@@ -379,7 +431,59 @@ export default function AdminSessionsPage() {
               bgcolor: 'background.default'
             }}
           >
-            {/* Açık Masalar */}
+            {sessions.some(s => s.needs_support) && (
+              <Box sx={{ p: 2, bgcolor: 'error.main', color: 'error.contrastText', display: 'flex', flexDirection: 'column' }}>
+                <Stack direction="row" sx={{ alignItems: 'center', gap: 1, mb: 1 }}>
+                  <SupportAgent fontSize="small" />
+                  <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>Destek Bekleyen Masalar</Typography>
+                  <Chip size="small" label={sessions.filter(s => s.needs_support).length} sx={{ ml: 'auto', bgcolor: 'rgba(255,255,255,0.2)', color: 'white', fontWeight: 700 }} />
+                </Stack>
+                <List sx={{ p: 0 }}>
+                  {sessions.filter(s => s.needs_support).map(s => {
+                    const t = tables.find((x) => x.id === s.table_id);
+                    return (
+                      <ListItem key={s.id} sx={{ px: 0, py: 0.5, gap: 1 }}>
+                        <ListItemText 
+                          disableTypography
+                          primary={
+                            <Typography variant="body1" sx={{ fontWeight: 800, color: 'inherit', display: 'flex', alignItems: 'center', gap: 1 }}>
+                              <ReportProblem fontSize="small" />
+                              {`Masa #${t?.number ?? '?'}`}
+                            </Typography>
+                          }
+                          secondary={
+                            s.support_message && (
+                              <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.8)', display: 'block', mt: 0.5, fontStyle: 'italic' }}>
+                                &quot;{s.support_message}&quot;
+                              </Typography>
+                            )
+                          }
+                        />
+                        <Button 
+                          size="small" 
+                          variant="outlined" 
+                          color="inherit" 
+                          onClick={(e) => { e.stopPropagation(); handleResolveSupport(s.id); }}
+                          sx={{ borderColor: 'rgba(255,255,255,0.5)', color: 'white', fontWeight: 'bold' }}
+                        >
+                          Kapat
+                        </Button>
+                        <Button 
+                          size="small" 
+                          variant="contained" 
+                          color="inherit" 
+                          onClick={() => t && handleTableClick(t)}
+                          sx={{ color: 'error.main', fontWeight: 'bold', bgcolor: 'white' }}
+                        >
+                          İncele
+                        </Button>
+                      </ListItem>
+                    );
+                  })}
+                </List>
+              </Box>
+            )}
+
             <Box sx={{ p: 2, bgcolor: 'background.paper', borderBottom: '1px solid', borderColor: 'divider', display: 'flex', flexDirection: 'column', maxHeight: { xs: 400, md: '50%' } }}>
               <Stack direction="row" sx={{ alignItems: 'center', gap: 1, mb: 1, flexShrink: 0 }}>
                 <AccessTime fontSize="small" color="primary" />
@@ -390,19 +494,31 @@ export default function AdminSessionsPage() {
                 {sessions.length === 0 ? (
                   <Typography variant="body2" color="text.secondary" sx={{ py: 2, textAlign: 'center' }}>Şu an açık masa yok.</Typography>
                 ) : (
-                  sessions.map((s) => {
+                  [...sessions].sort((a, b) => {
+                    if (a.needs_support && !b.needs_support) return -1;
+                    if (!a.needs_support && b.needs_support) return 1;
+                    const aPending = a.orders?.some((o: any) => o.status === 'PENDING') ? 1 : 0;
+                    const bPending = b.orders?.some((o: any) => o.status === 'PENDING') ? 1 : 0;
+                    if (aPending !== bPending) return bPending - aPending;
+                    return new Date(b.started_at).getTime() - new Date(a.started_at).getTime();
+                  }).map((s) => {
                     const t = tables.find((x) => x.id === s.table_id);
                     const name = s.kind === 'MEMBER' ? (s.user?.full_name || s.user?.email) : (s.anonymous_label || 'Misafir');
                     const rate = Number(s?.hourly_rate_snapshot ?? (t ? categoryMeta[t.category]?.defaultRate : 0));
                     const ms = Date.now() - new Date(s.started_at).getTime();
                     const estimated = Math.round((ms / 3_600_000) * rate);
+                    const ordersTotal = (s && (s as any).orders) ? (s as any).orders.reduce((sum: number, o: any) => o.status !== 'CANCELLED' ? sum + Number(o.total_amount) : sum, 0) : 0;
+                    const totalCost = estimated + ordersTotal;
+                    const hasPending = s.orders?.some((o: any) => o.status === 'PENDING');
                     return (
                       <ListItem key={s.id} sx={{ px: 0, py: 1.5, borderBottom: '1px dashed', borderColor: 'divider', '&:last-child': { borderBottom: 'none' } }}>
                         <ListItemText
                           disableTypography
                           primary={
-                            <Typography variant="body2" sx={{ fontWeight: 800, color: 'text.primary' }}>
+                            <Typography variant="body2" sx={{ fontWeight: 800, color: 'text.primary', display: 'flex', alignItems: 'center', gap: 1 }}>
                               {`Masa #${t?.number ?? '?'}`}
+                              {s.needs_support && <ReportProblem fontSize="small" color="error" />}
+                              {!s.needs_support && hasPending && <RoomService fontSize="small" color="warning" />}
                             </Typography>
                           }
                           secondary={
@@ -412,13 +528,13 @@ export default function AdminSessionsPage() {
                                 {s.kind === 'MEMBER' ? 'Üye' : 'Anonim'} — {name}
                               </Typography>
                               <Typography variant="caption" sx={{ color: 'text.primary', fontWeight: 600 }}>
-                                ⏱ {elapsed(s.started_at)} · 💰 {estimated} ₺
+                                ⏱ {elapsed(s.started_at)} · 💰 {totalCost} ₺
                               </Typography>
                             </Stack>
                           }
                         />
-                        <Button size="small" variant="outlined" color="error" onClick={() => t && handleTableClick(t)} sx={{ ml: 1, minWidth: 'auto', px: 1.5, fontWeight: 700, borderRadius: 2 }}>
-                          Kapat
+                        <Button size="small" variant="outlined" color={s.needs_support ? 'error' : hasPending ? 'warning' : 'primary'} onClick={() => t && handleTableClick(t)} sx={{ ml: 1, minWidth: 'auto', px: 1.5, fontWeight: 700, borderRadius: 2 }}>
+                          Detay
                         </Button>
                       </ListItem>
                     );
@@ -427,7 +543,6 @@ export default function AdminSessionsPage() {
               </List>
             </Box>
             
-            {/* Yaklaşan Randevular */}
             <Box sx={{ p: 2, bgcolor: 'background.paper', flexGrow: 1, overflow: 'auto', display: 'flex', flexDirection: 'column' }}>
               <Stack direction="row" sx={{ alignItems: 'center', gap: 1, mb: 1, flexShrink: 0 }}>
                 <Event fontSize="small" color="secondary" />
@@ -504,35 +619,64 @@ export default function AdminSessionsPage() {
         )}
       </Box>
 
-      {/* Dialogs */}
-      <Dialog open={openDialog} onClose={() => !saving && setOpenDialog(false)} maxWidth="xs" fullWidth>
+      <Dialog open={openDialog} onClose={() => !saving && setOpenDialog(false)} maxWidth="sm" fullWidth>
         <DialogTitle>Masa #{selectedTable?.number} — Oturum Başlat</DialogTitle>
         <DialogContent>
           <Stack spacing={2} sx={{ mt: 1 }}>
-            <TextField
-              select
-              label="Tür"
+            <ToggleButtonGroup
+              color="primary"
               value={kind}
-              onChange={(e) => setKind(e.target.value as 'MEMBER' | 'ANONYMOUS')}
+              exclusive
+              onChange={(e, newKind) => {
+                if (newKind !== null) setKind(newKind as 'MEMBER' | 'ANONYMOUS');
+              }}
               fullWidth
+              size="small"
             >
-              <MenuItem value="ANONYMOUS">Anonim / Walk-in</MenuItem>
-              <MenuItem value="MEMBER">Üye</MenuItem>
-            </TextField>
+              <ToggleButton value="ANONYMOUS" sx={{ fontWeight: 'bold' }}>Misafir (Walk-in)</ToggleButton>
+              <ToggleButton value="MEMBER" sx={{ fontWeight: 'bold' }}>Üye (Kayıtlı)</ToggleButton>
+            </ToggleButtonGroup>
             {kind === 'MEMBER' ? (
-              <TextField
-                select
-                label="Üye"
-                value={memberId}
-                onChange={(e) => setMemberId(e.target.value)}
-                fullWidth
-              >
-                {members.map((m) => (
-                  <MenuItem key={m.id} value={m.id}>
-                    {m.full_name} — {m.email}
-                  </MenuItem>
-                ))}
-              </TextField>
+              <Box sx={{ height: 400, width: '100%', mt: 2, display: 'flex', flexDirection: 'column' }}>
+                <Typography variant="subtitle2" sx={{ mb: 1 }}>Üye Seçin (E-posta veya isme göre filtreleyebilirsiniz)</Typography>
+                <TextField
+                  fullWidth
+                  size="small"
+                  placeholder="İsim veya E-posta ile ara..."
+                  variant="outlined"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  sx={{ mb: 2 }}
+                />
+                <Box sx={{ flexGrow: 1, minHeight: 0 }}>
+                  <DataGrid
+                    rows={members.filter(m => 
+                      !searchQuery || 
+                      (m.full_name && m.full_name.toLowerCase().includes(searchQuery.toLowerCase())) ||
+                      (m.email && m.email.toLowerCase().includes(searchQuery.toLowerCase()))
+                    )}
+                    columns={[
+                      { field: 'full_name', headerName: 'İsim', flex: 1 },
+                      { field: 'email', headerName: 'E-posta', flex: 1 }
+                    ]}
+                    initialState={{
+                      pagination: { paginationModel: { pageSize: 5 } },
+                    }}
+                    pageSizeOptions={[5, 10, 25]}
+                    rowSelectionModel={{ type: 'include', ids: new Set(memberId ? [memberId] : []) }}
+                    onRowSelectionModelChange={(newModel) => {
+                      if (newModel.ids.size > 0) {
+                        setMemberId(Array.from(newModel.ids)[0] as string);
+                      } else {
+                        setMemberId('');
+                      }
+                    }}
+                    disableMultipleRowSelection
+                    checkboxSelection={false}
+                    density="compact"
+                  />
+                </Box>
+              </Box>
             ) : (
               <TextField
                 label="Etiket"
@@ -552,7 +696,6 @@ export default function AdminSessionsPage() {
         </DialogActions>
       </Dialog>
 
-      {/* Mesajlaşma Dialogu */}
       <ReservationMessagesDialog
         open={msgOpen}
         reservationId={msgReservationId}
@@ -578,7 +721,25 @@ export default function AdminSessionsPage() {
             />
           )}
         </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDetailsData(null)}>Kapat</Button>
+        </DialogActions>
       </Dialog>
+
+      {/* Session Details & Orders Dialog */}
+      <SessionDetailsDialog
+        open={!!sessionDetails}
+        sessionDetails={sessionDetails}
+        onClose={() => setSessionDetails(null)}
+        menuItems={menuItems}
+        onResolveSupport={handleResolveSupport}
+        onEndSession={(id) => {
+          endSession(id);
+          setSessionDetails(null);
+        }}
+        onUpdateOrderStatus={updateOrderStatus}
+        onAddOrder={handleAddOrder}
+      />
     </Box>
   );
 }

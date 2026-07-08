@@ -211,6 +211,8 @@ model TableSession {
   hourly_rate_snapshot Decimal?     @db.Decimal
   amount_charged       Decimal?     @db.Decimal
   notes                String?
+  needs_support        Boolean      @default(false)
+  support_message      String?
   created_by           String?      @db.Uuid
   created_at           DateTime     @default(now()) @db.Timestamptz(6)
 
@@ -239,4 +241,16 @@ model CafeSettings {
   updated_at      DateTime @default(now()) @updatedAt @db.Timestamptz(6)
 
   @@map("cafe_settings")
+}
+model CafeMenuItem {
+  id          String   @id @default(uuid()) @db.Uuid
+  code        String?
+  category    String
+  name        String
+  price       Decimal  @db.Decimal(10, 2)
+  description String?
+  is_active   Boolean  @default(true)
+  created_at  DateTime @default(now()) @db.Timestamptz(6)
+
+  @@map("cafe_menu_items")
 }

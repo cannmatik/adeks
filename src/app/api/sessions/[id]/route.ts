@@ -18,7 +18,7 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
   if (!['admin', 'super_admin'].includes(profile?.role)) return NextResponse.json({ error: 'Yetkisiz' }, { status: 403 });
 
   const body = await req.json().catch(() => ({}));
-  const { end, notes } = body;
+  const { end, notes, needs_support } = body;
 
   if (end) {
     const { data: existing } = await supabase
@@ -49,9 +49,13 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
     return NextResponse.json({ session: data });
   }
 
+  const updatePayload: any = {};
+  if (notes !== undefined) updatePayload.notes = notes;
+  if (needs_support !== undefined) updatePayload.needs_support = needs_support;
+
   const { data, error } = await supabase
     .from('table_sessions')
-    .update({ ...(notes !== undefined ? { notes } : {}) })
+    .update(updatePayload)
     .eq('id', id)
     .select()
     .single();

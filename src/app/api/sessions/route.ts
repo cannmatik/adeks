@@ -28,10 +28,11 @@ export async function GET(req: Request) {
     .from('table_sessions')
     .select(
       `id, table_id, kind, user_id, anonymous_label, reservation_id, started_at, ended_at,
-       hourly_rate_snapshot, amount_charged, notes,
+       hourly_rate_snapshot, amount_charged, notes, needs_support, support_message,
        table:tables(id, number, category, status),
        user:profiles!table_sessions_user_id_fkey(id, full_name, email),
-       created_by_profile:profiles!table_sessions_created_by_fkey(id, full_name, email)`,
+       created_by_profile:profiles!table_sessions_created_by_fkey(id, full_name, email),
+       orders(id, total_amount, status, created_at, order_items(quantity, cafe_menu_items(name)))`,
     )
     .order('started_at', { ascending: false });
 

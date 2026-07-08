@@ -1,0 +1,788 @@
+[
+  {
+    "category": "Kampanya Menüler",
+    "code": "280",
+    "name": "Patso Menü",
+    "price": "249",
+    "description": [
+      "Sade Patso ve Ayran"
+    ]
+  },
+  {
+    "category": "Kampanya Menüler",
+    "code": "281",
+    "name": "Piliç Dürüm Menü",
+    "price": "299",
+    "description": [
+      "Piliç Şiş Dürüm, Patates ve Ayran"
+    ]
+  },
+  {
+    "category": "Kampanya Menüler",
+    "code": "282",
+    "name": "Burger Menü",
+    "price": "469",
+    "description": [
+      "100gr Dana Burger, Pataes ve Kutu İçecek"
+    ]
+  },
+  {
+    "category": "Kampanya Menüler",
+    "code": "283",
+    "name": "Arabiata Makarna Menğ",
+    "price": "369",
+    "description": [
+      "Penne makarna, zeytin, sarımsak, acı biberli napolitan sos ve Kutu İçecek"
+    ]
+  },
+  {
+    "category": "Kampanya Menüler",
+    "code": "284",
+    "name": "Kaşarlı Tost Menü",
+    "price": "159",
+    "description": [
+      "Kaşarlı Tost ve Bardak Çay"
+    ]
+  },
+  {
+    "category": "Kampanya Menüler",
+    "code": "286",
+    "name": "Çikolatalı Tost Menü",
+    "price": "179",
+    "description": [
+      "Çikolatalı Tost ve Bardak Çay",
+      "285 Kahve - Kurabiye Menü",
+      "Sade / Sütlü Kahve ve Çikolatalı Kurabiye",
+      "TOSTLAR"
+    ]
+  },
+  {
+    "category": "Kampanya Menüler",
+    "code": "151",
+    "name": "Kaşarlı Tost",
+    "price": "139",
+    "description": []
+  },
+  {
+    "category": "Kampanya Menüler",
+    "code": "152",
+    "name": "Kepekli Beyaz Peynirli Tost",
+    "price": "169",
+    "description": []
+  },
+  {
+    "category": "Kampanya Menüler",
+    "code": "154",
+    "name": "Karışık Tost",
+    "price": "239",
+    "description": [
+      "Kangal Sucuk, Kaşar"
+    ]
+  },
+  {
+    "category": "Kampanya Menüler",
+    "code": "156",
+    "name": "Çikolatalı Tost",
+    "price": "189",
+    "description": []
+  },
+  {
+    "category": "Kampanya Menüler",
+    "code": "157",
+    "name": "Adeks Tost",
+    "price": "319",
+    "description": [
+      "Kaşar, kangal sucuk, domates, biber ve nefis Adeks Sos ile",
+      "Burgerler",
+      "Kızarmış patates ile servis edilir.",
+      "Patso ve Aperatifler"
+    ]
+  },
+  {
+    "category": "Kampanya Menüler",
+    "code": "201",
+    "name": "Cajun Piliç Burger (100gr)",
+    "price": "309",
+    "description": []
+  },
+  {
+    "category": "Kampanya Menüler",
+    "code": "209",
+    "name": "Çıtır Piliç Burger (100gr)",
+    "price": "299",
+    "description": []
+  },
+  {
+    "category": "Kampanya Menüler",
+    "code": "202",
+    "name": "Hamburger (100gr)",
+    "price": "419",
+    "description": []
+  },
+  {
+    "category": "Kampanya Menüler",
+    "code": "203",
+    "name": "Cheeseburger (100gr)",
+    "price": "439",
+    "description": []
+  },
+  {
+    "category": "Kampanya Menüler",
+    "code": "205",
+    "name": "Bomba Burger",
+    "price": "399",
+    "description": [
+      "Sosis, sucuk, kornişon turşu, kaşar, yumurta"
+    ]
+  },
+  {
+    "category": "Kampanya Menüler",
+    "code": "206",
+    "name": "Double Burger (200gr)",
+    "price": "679",
+    "description": [
+      "Çift burger köftesi ve çedar peyniri"
+    ]
+  },
+  {
+    "category": "Kampanya Menüler",
+    "code": "208",
+    "name": "Adeks Burger (150gr)",
+    "price": "579",
+    "description": [
+      "Özel hamburger köftesi, karamelize soğan, çedar ve nefis Adeks Sos ile"
+    ]
+  },
+  {
+    "category": "Kampanya Menüler",
+    "code": "271",
+    "name": "Günün Çorbası",
+    "price": "109",
+    "description": []
+  },
+  {
+    "category": "Kampanya Menüler",
+    "code": "351",
+    "name": "Sade Patso",
+    "price": "209",
+    "description": []
+  },
+  {
+    "category": "Kampanya Menüler",
+    "code": "352",
+    "name": "Sosisli Patso",
+    "price": "269",
+    "description": []
+  },
+  {
+    "category": "Kampanya Menüler",
+    "code": "353",
+    "name": "Sucuklu Patso",
+    "price": "299",
+    "description": []
+  },
+  {
+    "category": "Kampanya Menüler",
+    "code": "251",
+    "name": "Parmak Patates",
+    "price": "169",
+    "description": []
+  },
+  {
+    "category": "Kampanya Menüler",
+    "code": "252",
+    "name": "Soğan Halkası 10 Adet",
+    "price": "149",
+    "description": []
+  },
+  {
+    "category": "Kampanya Menüler",
+    "code": "254",
+    "name": "Çıtır Piliç Parçaları (350gr)",
+    "price": "319",
+    "description": []
+  },
+  {
+    "category": "Kampanya Menüler",
+    "code": "256",
+    "name": "Combo Sepeti",
+    "price": "379",
+    "description": [
+      "6 adet soğan halkası, 4 adet kokteyl sosis, 200gr çıtır piliç patates kızarması"
+    ]
+  },
+  {
+    "category": "Kampanya Menüler",
+    "code": "451",
+    "name": "Piliç Quesadilla",
+    "price": "369",
+    "description": [
+      "Tortilla ekmeği arasında sote edilmiş piliç, mantar, renkli biber ve kaşar. Patates kızartması ve salsa sos ile"
+    ]
+  },
+  {
+    "category": "Kampanya Menüler",
+    "code": "452",
+    "name": "Sebzeli Quesadilla",
+    "price": "339",
+    "description": [
+      "Tortilla ekmeği arasında sote edilmiş mantar, renkli biber ve kaşar. Patates kızartması ve salsa sos ile",
+      "Dürüm",
+      "Kaşar ilavesi + ₺20",
+      "Tortilla ekmeği içine sarılmış çeşitli lezzetler; marul, domates ve kızarmış patates ile servis edilir."
+    ]
+  },
+  {
+    "category": "Kampanya Menüler",
+    "code": "402",
+    "name": "Piliç Şiş Dürüm",
+    "price": "269",
+    "description": []
+  },
+  {
+    "category": "Kampanya Menüler",
+    "code": "403",
+    "name": "Acılı Cajun Piliç Dürüm",
+    "price": "299",
+    "description": [
+      "Dürüm İçerisine patates, çedar ve acı sos"
+    ]
+  },
+  {
+    "category": "Kampanya Menüler",
+    "code": "404",
+    "name": "Mantarlı Piliç Şiş Dürüm",
+    "price": "309",
+    "description": []
+  },
+  {
+    "category": "Kampanya Menüler",
+    "code": "405",
+    "name": "Çıtır Piliç Dürüm",
+    "price": "299",
+    "description": []
+  },
+  {
+    "category": "Kampanya Menüler",
+    "code": "407",
+    "name": "Et Döner Dürüm",
+    "price": "459",
+    "description": []
+  },
+  {
+    "category": "Kampanya Menüler",
+    "code": "408",
+    "name": "Köfte Dürüm",
+    "price": "439",
+    "description": [
+      "Makarnalar",
+      "Salatalar"
+    ]
+  },
+  {
+    "category": "Kampanya Menüler",
+    "code": "501",
+    "name": "Penne Arabiata",
+    "price": "269",
+    "description": [
+      "Zeytin, sarımsak ve acı biberli napolitan sos"
+    ]
+  },
+  {
+    "category": "Kampanya Menüler",
+    "code": "502",
+    "name": "Fettuccine Alfredo",
+    "price": "399",
+    "description": [
+      "Krema, mantar, renkli biber, pesto sos ve parmesan"
+    ]
+  },
+  {
+    "category": "Kampanya Menüler",
+    "code": "503",
+    "name": "Spagetti Bolognese",
+    "price": "389",
+    "description": [
+      "Kıymalı napolitan sos, parmesan"
+    ]
+  },
+  {
+    "category": "Kampanya Menüler",
+    "code": "507",
+    "name": "Fettuccine Belle",
+    "price": "489",
+    "description": [
+      "Krema, mantar, jülyen tavuk parçaları, renkli biber, pesto sos ve parmesan"
+    ]
+  },
+  {
+    "category": "Kampanya Menüler",
+    "code": "508",
+    "name": "Fettuccine Bisteca",
+    "price": "589",
+    "description": [
+      "Sotelenmiş kontrfile parçaları, renkli biber ve napolitan sos"
+    ]
+  },
+  {
+    "category": "Kampanya Menüler",
+    "code": "551",
+    "name": "Akdeniz Salata",
+    "price": "339",
+    "description": [
+      "Akdeniz yeşillikleri, beyaz peynir, siyah zeytin, domates, mısır zeytinyağı ve limon sos ile"
+    ]
+  },
+  {
+    "category": "Kampanya Menüler",
+    "code": "553",
+    "name": "Cajun Piliç Salata",
+    "price": "379",
+    "description": [
+      "Akdeniz yeşillikleri, cajun baharatı ile pane edilmiş tavuk parçaları, kaşar domates, salatalık, dilim zeytin ve hardal sos ile"
+    ]
+  },
+  {
+    "category": "Kampanya Menüler",
+    "code": "554",
+    "name": "Çıtır Piliç Salata",
+    "price": "389",
+    "description": [
+      "Akdeniz yeşillikleri, çıtır piliç parçaları, kaşar, domates, salatalık, dilim zeytin ve mayonezli yeşil sos ile"
+    ]
+  },
+  {
+    "category": "Kampanya Menüler",
+    "code": "557",
+    "name": "Sezar Salata",
+    "price": "399",
+    "description": [
+      "Akdeniz yeşillikleri, ızgara jülyen tavuk parçaları, kaşar, domates, salatalık kruton ekmek, sezar sos ile"
+    ]
+  },
+  {
+    "category": "Kampanya Menüler",
+    "code": "558",
+    "name": "Kontrfile Salata",
+    "price": "539",
+    "description": [
+      "Akdeniz yeşillikleri üzerine ızgara jülyen kontrfile parçaları, kaşar, domates salatalık, kruton ekmek ve limonlu sos ile",
+      "Ana Yemekler"
+    ]
+  },
+  {
+    "category": "Kampanya Menüler",
+    "code": "601",
+    "name": "Çökertme Kebabı tavuklu",
+    "price": "329",
+    "description": [
+      "Yoğurtlu kibrit patates üzerinde taze baharatla marine edilip tereyağlı domates sos ile sotelenmiş tavuk"
+    ]
+  },
+  {
+    "category": "Kampanya Menüler",
+    "code": "602",
+    "name": "Çökertme Kebabı et dönerli",
+    "price": "469",
+    "description": [
+      "Yoğurtlu kibrit patates üzerinde taze baharatla marine edilip tereyağlı domates sos ile sotelenmiş et döner"
+    ]
+  },
+  {
+    "category": "Kampanya Menüler",
+    "code": "603",
+    "name": "Çökertme Kebabı kontrfile",
+    "price": "499",
+    "description": [
+      "Yoğurtlu kibrit patates üzerinde taze baharatla marine edilip tereyağlı domates sos ile sotelenmiş kontrfile parçaları"
+    ]
+  },
+  {
+    "category": "Kampanya Menüler",
+    "code": "606",
+    "name": "Piliç Izgara",
+    "price": "329",
+    "description": [
+      "Izgara piliç fileto, salata ve patates kızartması"
+    ]
+  },
+  {
+    "category": "Kampanya Menüler",
+    "code": "605",
+    "name": "Piliç Meksika",
+    "price": "339",
+    "description": [
+      "Taze baharatla marine edilmiş ızgara piliç üzerine acılı meksika sosu jalapeno, renkli biber ve patates kızartması"
+    ]
+  },
+  {
+    "category": "Kampanya Menüler",
+    "code": "609",
+    "name": "Piliç Emense",
+    "price": "369",
+    "description": [
+      "Jülyen tavuk parçaları, hardallı dömi glas sos, renkli biber, taze baharatlar, krema ve patates kızartması"
+    ]
+  },
+  {
+    "category": "Kampanya Menüler",
+    "code": "613",
+    "name": "Piliç Şinitzel",
+    "price": "329",
+    "description": [
+      "Piliç filetosu üzerinde tereyağı, limon, salata ve patates kızartması"
+    ]
+  },
+  {
+    "category": "Kampanya Menüler",
+    "code": "610",
+    "name": "Piliç Mushroom",
+    "price": "489",
+    "description": [
+      "Piliç filetosu üzerine sotelenmiş mantar, kırmızı biber, krema, eritilmiş kaşar ve patates kızartması"
+    ]
+  },
+  {
+    "category": "Kampanya Menüler",
+    "code": "607",
+    "name": "Cafe de Paris Soslu Tavuk",
+    "price": "499",
+    "description": [
+      "Jülyen tavuk parçaları, patates kızartması, salata ve pesto soslu penne makarna"
+    ]
+  },
+  {
+    "category": "Kampanya Menüler",
+    "code": "608",
+    "name": "Köri Soslu Tavuk",
+    "price": "479",
+    "description": [
+      "Köri sosu ile sotelenmiş tavuk parçaları, patates kızartması, salata ve pesto soslu penne makarna"
+    ]
+  },
+  {
+    "category": "Kampanya Menüler",
+    "code": "604",
+    "name": "Izgara Köfte",
+    "price": "519",
+    "description": [
+      "Izgara köfte yanında mevsim yeşilliği, ızgara biber ve patates kızartması Kaşar ilavesi + 20"
+    ]
+  },
+  {
+    "category": "Kampanya Menüler",
+    "code": "614",
+    "name": "Adeks Dürüm",
+    "price": "669",
+    "description": [
+      "Kontrfile, soya sosu, soğan ve nefis Adeks Sos. Yoğurt, çedar patates kızartması ve salata ile tabakta servis edilir.",
+      "Sıcak İçecekler"
+    ]
+  },
+  {
+    "category": "Kampanya Menüler",
+    "code": "851",
+    "name": "Bardak Çay",
+    "price": "40",
+    "description": []
+  },
+  {
+    "category": "Kampanya Menüler",
+    "code": "852",
+    "name": "Fincan Çay",
+    "price": "70",
+    "description": []
+  },
+  {
+    "category": "Kampanya Menüler",
+    "code": "853",
+    "name": "Bitki Çayları",
+    "price": "85",
+    "description": []
+  },
+  {
+    "category": "Kampanya Menüler",
+    "code": "806",
+    "name": "Espresso",
+    "price": "129",
+    "description": []
+  },
+  {
+    "category": "Kampanya Menüler",
+    "code": "807",
+    "name": "Double Espresso",
+    "price": "149",
+    "description": []
+  },
+  {
+    "category": "Kampanya Menüler",
+    "code": "808",
+    "name": "Espresso Macchiato",
+    "price": "129",
+    "description": []
+  },
+  {
+    "category": "Kampanya Menüler",
+    "code": "809",
+    "name": "Türk Kahvesi",
+    "price": "129",
+    "description": []
+  },
+  {
+    "category": "Kampanya Menüler",
+    "code": "810",
+    "name": "Double Türk Kahvesi",
+    "price": "149",
+    "description": []
+  },
+  {
+    "category": "Kampanya Menüler",
+    "code": "801",
+    "name": "Filtre Kahve",
+    "price": "139",
+    "description": []
+  },
+  {
+    "category": "Kampanya Menüler",
+    "code": "802",
+    "name": "Americano",
+    "price": "139",
+    "description": []
+  },
+  {
+    "category": "Kampanya Menüler",
+    "code": "803",
+    "name": "Latte",
+    "price": "179",
+    "description": []
+  },
+  {
+    "category": "Kampanya Menüler",
+    "code": "804",
+    "name": "Cappuccino",
+    "price": "179",
+    "description": []
+  },
+  {
+    "category": "Kampanya Menüler",
+    "code": "805",
+    "name": "Cafe Mocha",
+    "price": "219",
+    "description": []
+  },
+  {
+    "category": "Kampanya Menüler",
+    "code": "881",
+    "name": "Sıcak Cikolata",
+    "price": "219",
+    "description": []
+  },
+  {
+    "category": "Kampanya Menüler",
+    "code": "882",
+    "name": "Ballı Süt",
+    "price": "219",
+    "description": []
+  },
+  {
+    "category": "Kampanya Menüler",
+    "code": "883",
+    "name": "Salep",
+    "price": "219",
+    "description": [
+      "Soğuk Kahveler"
+    ]
+  },
+  {
+    "category": "Kampanya Menüler",
+    "code": "771",
+    "name": "Iced Americano",
+    "price": "189",
+    "description": []
+  },
+  {
+    "category": "Kampanya Menüler",
+    "code": "772",
+    "name": "Iced Cafe Latte",
+    "price": "219",
+    "description": []
+  },
+  {
+    "category": "Kampanya Menüler",
+    "code": "773",
+    "name": "Iced Caramel Macchiato",
+    "price": "239",
+    "description": []
+  },
+  {
+    "category": "Kampanya Menüler",
+    "code": "774",
+    "name": "Iced Cafe Mocha",
+    "price": "239",
+    "description": [
+      "Frappe",
+      "775 Vanilya - 776 Çikolata - 777 Karamel",
+      "Soğuk İçecekler"
+    ]
+  },
+  {
+    "category": "Kampanya Menüler",
+    "code": "766",
+    "name": "Su",
+    "price": "30",
+    "description": []
+  },
+  {
+    "category": "Kampanya Menüler",
+    "code": "709",
+    "name": "Soda",
+    "price": "45",
+    "description": []
+  },
+  {
+    "category": "Kampanya Menüler",
+    "code": "710",
+    "name": "Meyveli Sodalar",
+    "price": "60",
+    "description": [
+      "710 Limonlu - 712 Elmalı - 715 Mango&Ananas - 716 Karpuz&Çilek"
+    ]
+  },
+  {
+    "category": "Kampanya Menüler",
+    "code": "761",
+    "name": "Ayran",
+    "price": "65",
+    "description": []
+  },
+  {
+    "category": "Kampanya Menüler",
+    "code": "763",
+    "name": "Özel Şişe Ayran",
+    "price": "95",
+    "description": []
+  },
+  {
+    "category": "Kampanya Menüler",
+    "code": "701",
+    "name": "Kutu İçecekler",
+    "price": "90",
+    "description": [
+      "Coca-Cola, Fanta, Sprite, Zero, Max"
+    ]
+  },
+  {
+    "category": "Kampanya Menüler",
+    "code": "707",
+    "name": "Şişe İçecekler",
+    "price": "90",
+    "description": [
+      "707 Beyoğlu - 708 Coca-Cola 300ml - Schweppes: 768 Bitter Limon - 769 Mandalina"
+    ]
+  },
+  {
+    "category": "Kampanya Menüler",
+    "code": "721",
+    "name": "Soğuk Çaylar",
+    "price": "90",
+    "description": [
+      "721 Limon - 722 Şeftali - 723 Mango - 726 Karpuz"
+    ]
+  },
+  {
+    "category": "Kampanya Menüler",
+    "code": "731",
+    "name": "Meyve Suları",
+    "price": "90",
+    "description": [
+      "731 Vişne - 732 Portakal - 733 Kayısı - 734 Şeftali - 735 Karışık - 737 Atom"
+    ]
+  },
+  {
+    "category": "Kampanya Menüler",
+    "code": "751",
+    "name": "Limonata",
+    "price": "129",
+    "description": []
+  },
+  {
+    "category": "Kampanya Menüler",
+    "code": "762",
+    "name": "Cool Lime",
+    "price": "129",
+    "description": []
+  },
+  {
+    "category": "Kampanya Menüler",
+    "code": "782",
+    "name": "Monster",
+    "price": "169",
+    "description": [
+      "782 Karpuz - 783 Green - 784 Mango - 785 Pipeline - 786 Rossi - 787 Ultra - 788 Reserve"
+    ]
+  },
+  {
+    "category": "Kampanya Menüler",
+    "code": "753",
+    "name": "Frozen",
+    "price": "229",
+    "description": []
+  },
+  {
+    "category": "Kampanya Menüler",
+    "code": "752",
+    "name": "Milkshake",
+    "price": "259",
+    "description": [
+      "Tatlılar"
+    ]
+  },
+  {
+    "category": "Kampanya Menüler",
+    "code": "920",
+    "name": "Kurabiye",
+    "price": "80",
+    "description": []
+  },
+  {
+    "category": "Kampanya Menüler",
+    "code": "901",
+    "name": "Magnolia",
+    "price": "259",
+    "description": [
+      "901 Çikolata - 902 Çilekli - 903 Muzlu - 904 Oreolu"
+    ]
+  },
+  {
+    "category": "Kampanya Menüler",
+    "code": "922",
+    "name": "Meyveli Cheesecake",
+    "price": "239",
+    "description": []
+  },
+  {
+    "category": "Kampanya Menüler",
+    "code": "924",
+    "name": "San sebastian Cheesecake",
+    "price": "319",
+    "description": [
+      "932 Beyaz Çikolatalı Brownie - Dondurma İle"
+    ]
+  },
+  {
+    "category": "Kampanya Menüler",
+    "code": "905",
+    "name": "Tiramisu",
+    "price": "319",
+    "description": [
+      "931 Sufle - Dondurma İle"
+    ]
+  },
+  {
+    "category": "Kampanya Menüler",
+    "code": "933",
+    "name": "Dilim Pastalar",
+    "price": "259",
+    "description": []
+  }
+]
