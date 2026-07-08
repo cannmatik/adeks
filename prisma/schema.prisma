@@ -4,7 +4,7 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
+  provider  = "postgresql"
 }
 
 model Profile {
@@ -57,6 +57,7 @@ model Category {
   hourly_rate Decimal       @db.Decimal(10, 2)
   color       String        @default("#C0C0C0")
   description String?
+  features    String[]      @default([])
 
   @@map("categories")
 }

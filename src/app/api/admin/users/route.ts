@@ -13,8 +13,10 @@ async function requireAdmin() {
     .eq('id', user.id)
     .single();
     
-  if (profile?.role !== 'admin') return { error: 'Yetkisiz', status: 403 };
-  return { success: true };
+  if (!['admin', 'super_admin'].includes(profile?.role)) {
+    return { error: 'Yetkisiz', status: 403 };
+  }
+  return { success: true, role: profile?.role as string };
 }
 
 export async function GET() {
@@ -53,6 +55,20 @@ export async function PATCH(req: Request) {
     const supabaseAdmin = createAdminClient();
 
     if (action === 'ban' || action === 'unban') {
+      // Check target user's role
+      const { data: targetProfile } = await supabaseAdmin
+        .from('profiles')
+        .select('role')
+        .eq('id', userId)
+        .single();
+      
+      if (
+        auth.role !== 'super_admin' && 
+        ['admin', 'super_admin'].includes(targetProfile?.role)
+      ) {
+        return NextResponse.json({ error: 'Normal yöneticiler sadece müşterileri banlayabilir.' }, { status: 403 });
+      }
+
       const isBanned = action === 'ban';
       
       // Update Supabase Auth ban duration
@@ -72,7 +88,11 @@ export async function PATCH(req: Request) {
       return NextResponse.json({ success: true, user: data });
     }
 
-    if (!role || !['admin', 'customer'].includes(role)) {
+    if (auth.role !== 'super_admin') {
+      return NextResponse.json({ error: 'Sadece Süper Yöneticiler yetki değiştirebilir.' }, { status: 403 });
+    }
+
+    if (!role || !['admin', 'super_admin', 'customer'].includes(role)) {
       return NextResponse.json({ error: 'Geçersiz rol' }, { status: 400 });
     }
 

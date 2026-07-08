@@ -1,10 +1,12 @@
 'use client';
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { Box, Button, Chip, Stack, Typography, Alert, CircularProgress, Paper, TextField, Collapse, IconButton, Stepper, Step, StepLabel, StepContent, FormControl, InputLabel, Select, MenuItem, Portal, Dialog, DialogTitle, DialogContent, DialogActions, Drawer, Badge, Fab, Tooltip } from '@mui/material';
-import { EventAvailable, Clear, DateRange, Search, TouchApp, ExpandLess, ExpandMore, CheckCircle, RocketLaunch, Send, ShoppingCart, Check, Close as CloseIcon, Delete, TableRestaurant } from '@mui/icons-material';
+import { Box, Button, Chip, Stack, Typography, Alert, CircularProgress, Paper, TextField, Collapse, IconButton, Stepper, Step, StepLabel, StepContent, FormControl, InputLabel, Select, MenuItem, Portal, Dialog, DialogTitle, DialogContent, DialogActions, Drawer, Badge, Fab, Tooltip, Grid, Accordion, AccordionSummary, AccordionDetails } from '@mui/material';
+import { DataGrid, GridColDef } from '@mui/x-data-grid';
+import { EventAvailable, Clear, DateRange, Search, TouchApp, ExpandLess, ExpandMore, CheckCircle, RocketLaunch, Send, ShoppingCart, Check, Close as CloseIcon, Delete, TableRestaurant, AttachMoney } from '@mui/icons-material';
 import { CafeTable } from '@/components/tables/TableCard';
-import RoomLayout from '@/components/tables/RoomLayout';
+import RoomLayout, { Legend } from '@/components/tables/RoomLayout';
+import { useColorScheme, useTheme } from '@mui/material/styles';
 import { TableCategory } from '@/lib/categories';
 import { useCategories } from '@/components/CategoryProvider';
 import gsap from 'gsap';
@@ -42,8 +44,13 @@ export default function DashboardPage() {
   const [confirmNotes, setConfirmNotes] = useState('');
   const [confirmPhone, setConfirmPhone] = useState('');
   const [basketExpanded, setBasketExpanded] = useState(false);
+  const [pricesOpen, setPricesOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [activeStep, setActiveStep] = useState(0);
+
+  const theme = useTheme();
+  const { mode } = useColorScheme();
+  const isDark = mode === 'dark' || theme.palette.mode === 'dark';
 
   const [cartOpen, setCartOpen] = useState(false);
   const [successMode, setSuccessMode] = useState(false);
@@ -218,16 +225,27 @@ export default function DashboardPage() {
     return () => clearInterval(interval);
   }, [load]);
 
+  const priceRows = dbCategories
+    .filter((c) => (categoryMeta[c.name]?.defaultRate ?? 0) > 0)
+    .map((c, i) => ({ id: i, ...c }));
+
+
+
   return (
     <Box>
-      <Box ref={headerRef} sx={{ mb: 3 }}>
-        <Typography variant="h4" sx={{ 
-          mb: 0.5, 
-          fontSize: { xs: '1.5rem', md: '2.125rem' }, 
-          fontWeight: 800,
-          color: 'text.primary',
-        }}>Salon Düzeni</Typography>
-        <Typography variant="body2" color="text.secondary">Rezervasyon adımlarını takip ederek işlemlerinizi hızlıca tamamlayın.</Typography>
+      <Box ref={headerRef} sx={{ mb: 3, display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, justifyContent: 'space-between', alignItems: { xs: 'flex-start', sm: 'center' }, gap: 2 }}>
+        <Box>
+          <Typography variant="h4" sx={{ 
+            mb: 0.5, 
+            fontSize: { xs: '1.5rem', md: '2.125rem' }, 
+            fontWeight: 800,
+            color: 'text.primary',
+          }}>Salon Düzeni</Typography>
+          <Typography variant="body2" color="text.secondary">Rezervasyon adımlarını takip ederek işlemlerinizi hızlıca tamamlayın.</Typography>
+        </Box>
+        <Button variant="outlined" color="primary" startIcon={<AttachMoney />} sx={{ fontWeight: 700, borderRadius: 2 }} onClick={() => setPricesOpen(true)}>
+          Kategori Ücretleri
+        </Button>
       </Box>
 
       {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>{error}</Alert>}
@@ -280,8 +298,8 @@ export default function DashboardPage() {
         <Stepper ref={stepperRef} activeStep={activeStep} orientation="vertical" sx={{ 
           '& .MuiStepContent-root': { borderLeftColor: 'divider', ml: { xs: 1.5, md: 3 }, pl: { xs: 0.5, md: 3 }, borderLeft: { xs: 'none', md: '1px solid divider' } },
           '& .MuiStepLabel-root': { transition: 'all 0.3s ease' },
-          '& .MuiStepIcon-root': { fontSize: 32, transition: 'transform 0.3s ease, color 0.3s ease' },
-          '& .MuiStepIcon-root.Mui-active': { transform: 'scale(1.2)', filter: 'drop-shadow(0 0 8px rgba(225,29,42,0.5))' },
+          '& .MuiStepIcon-root': { fontSize: 32, transition: 'font-size 0.3s ease, filter 0.3s ease, color 0.3s ease', overflow: 'visible' },
+          '& .MuiStepIcon-root.Mui-active': { fontSize: 40, filter: 'drop-shadow(0 4px 12px rgba(225,29,42,0.4))' },
           '& .MuiStepIcon-root.Mui-completed': { color: 'success.main' },
         }}>
           
@@ -387,6 +405,10 @@ export default function DashboardPage() {
                     </Select>
                   </FormControl>
                 </Stack>
+
+                <Box sx={{ mb: 3, pb: 2, borderBottom: '1px solid', borderColor: 'divider', display: { xs: 'none', md: 'block' } }}>
+                  <Legend isDark={isDark} categoryMeta={categoryMeta} />
+                </Box>
 
                 {loading && tables.length === 0 ? (
                   <Box sx={{ textAlign: 'center', py: 8 }}>
@@ -662,6 +684,57 @@ export default function DashboardPage() {
           >
             {submitting ? 'Gönderiliyor...' : 'Talebi Gönder'}
           </Button>
+        </DialogActions>
+      </Dialog>
+      <Dialog open={pricesOpen} onClose={() => setPricesOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle sx={{ fontWeight: 800 }}>Kategori Ücretleri ve Özellikleri</DialogTitle>
+        <DialogContent dividers sx={{ p: 2, bgcolor: 'background.paper' }}>
+          {priceRows.map((c) => {
+            const label = categoryMeta[c.name]?.label ?? c.name;
+            const color = categoryMeta[c.name]?.color || '#ccc';
+            const rate = categoryMeta[c.name]?.defaultRate ?? 0;
+            const dbFeatures = categoryMeta[c.name]?.features;
+            const specs = dbFeatures && dbFeatures.length > 0 ? dbFeatures : null;
+            
+            return (
+              <Accordion key={c.name} disableGutters elevation={0} sx={{
+                border: '1px solid',
+                borderColor: 'divider',
+                mb: 1,
+                borderRadius: '8px !important',
+                '&:before': { display: 'none' }
+              }}>
+                <AccordionSummary expandIcon={specs ? <ExpandMore /> : null} sx={{ px: 2 }}>
+                  <Box sx={{ display: 'flex', flex: 1, alignItems: 'center', justifyContent: 'space-between', pr: specs ? 2 : 0 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                      <Box sx={{ width: 14, height: 14, borderRadius: '50%', bgcolor: color }} />
+                      <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+                        {label}
+                      </Typography>
+                    </Box>
+                    <Typography variant="subtitle2" color="primary" sx={{ fontWeight: 800 }}>
+                      ₺{rate}
+                    </Typography>
+                  </Box>
+                </AccordionSummary>
+                {specs && (
+                  <AccordionDetails sx={{ pt: 0, pb: 2, px: 2 }}>
+                    <Stack spacing={0.75} sx={{ p: 1.5, bgcolor: 'action.hover', borderRadius: 1 }}>
+                      {specs.map((spec, idx) => (
+                        <Typography key={idx} variant="caption" color="text.secondary" sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}>
+                          <Box component="span" sx={{ color: 'primary.main', fontSize: '1rem', lineHeight: 1 }}>•</Box> 
+                          {spec}
+                        </Typography>
+                      ))}
+                    </Stack>
+                  </AccordionDetails>
+                )}
+              </Accordion>
+            );
+          })}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setPricesOpen(false)} sx={{ fontWeight: 600 }}>Kapat</Button>
         </DialogActions>
       </Dialog>
     </Box>

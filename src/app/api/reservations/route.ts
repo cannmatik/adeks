@@ -18,7 +18,7 @@ export async function GET(req: Request) {
   const scope = searchParams.get('scope');
 
   let reservationIds: string[] | null = null;
-  if (profile?.role !== 'admin' || scope === 'mine') {
+  if (!['admin', 'super_admin'].includes(profile?.role) || scope === 'mine') {
     const [ownedRes, participantRes] = await Promise.all([
       supabase.from('reservations').select('id').eq('user_id', user.id),
       supabase.from('reservation_participants').select('reservation_id').eq('user_id', user.id),
@@ -49,7 +49,7 @@ export async function GET(req: Request) {
   const { data, error } = await query;
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   
-  const isAdmin = profile?.role === 'admin';
+  const isAdmin = ['admin', 'super_admin'].includes(profile?.role);
 
   const reservationsWithUnread = data?.map((r: any) => {
     let unread_count = 0;

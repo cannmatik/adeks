@@ -23,7 +23,7 @@ export async function GET(req: Request) {
   }
 
   // Yetki kontrolü: admin veya rezervasyon sahibi/katılımcısı olmalı
-  if (profile?.role !== 'admin') {
+  if (!['admin', 'super_admin'].includes(profile?.role)) {
     const [ownedRes, participantRes] = await Promise.all([
       supabase.from('reservations').select('id').eq('id', reservationId).eq('user_id', user.id).maybeSingle(),
       supabase.from('reservation_participants').select('reservation_id').eq('reservation_id', reservationId).eq('user_id', user.id).maybeSingle(),
@@ -69,7 +69,7 @@ export async function GET(req: Request) {
     .eq('id', reservationId)
     .single();
 
-  if (reservation && profile?.role !== 'admin') {
+  if (reservation && !['admin', 'super_admin'].includes(profile?.role)) {
     delete (reservation as any).admin_notes;
   }
 
@@ -97,7 +97,7 @@ export async function POST(req: Request) {
   }
 
   // Yetki kontrolü
-  if (profile?.role !== 'admin') {
+  if (!['admin', 'super_admin'].includes(profile?.role)) {
     const [ownedRes, participantRes] = await Promise.all([
       supabase.from('reservations').select('id').eq('id', reservationId).eq('user_id', user.id).maybeSingle(),
       supabase.from('reservation_participants').select('reservation_id').eq('reservation_id', reservationId).eq('user_id', user.id).maybeSingle(),

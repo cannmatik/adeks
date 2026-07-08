@@ -26,7 +26,7 @@ async function requireAdmin() {
     .select('role')
     .eq('id', user.id)
     .single();
-  if (profile?.role !== 'admin') return { error: 'Yetkisiz', status: 403 } as const;
+  if (!['admin', 'super_admin'].includes(profile?.role)) return { error: 'Yetkisiz', status: 403 } as const;
   return { supabase } as const;
 }
 
@@ -37,7 +37,7 @@ export async function POST(req: Request) {
   }
 
   try {
-    const { name, label, hourly_rate, color, description } = await req.json();
+    const { name, label, hourly_rate, color, description, features } = await req.json();
 
     if (!name || !label || hourly_rate == null) {
       return NextResponse.json(
@@ -71,6 +71,7 @@ export async function POST(req: Request) {
         hourly_rate: Number(hourly_rate),
         color: color || '#C0C0C0',
         description: description || null,
+        features: Array.isArray(features) ? features : [],
       })
       .select()
       .single();
@@ -92,7 +93,7 @@ export async function PATCH(req: Request) {
   }
 
   try {
-    const { name, label, hourly_rate, color, description } = await req.json();
+    const { name, label, hourly_rate, color, description, features } = await req.json();
 
     if (!name) {
       return NextResponse.json({ error: 'name alanı zorunlu' }, { status: 400 });
@@ -103,6 +104,7 @@ export async function PATCH(req: Request) {
     if (hourly_rate !== undefined) updates.hourly_rate = Number(hourly_rate);
     if (color !== undefined) updates.color = color;
     if (description !== undefined) updates.description = description || null;
+    if (features !== undefined && Array.isArray(features)) updates.features = features;
 
     const { data, error } = await auth.supabase
       .from('categories')

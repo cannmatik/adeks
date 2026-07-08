@@ -43,7 +43,7 @@ export async function PUT(request: Request) {
       .eq('id', authData.user.id)
       .single();
 
-    if (!profile || profile.role !== 'admin') {
+    if (!profile || !['admin', 'super_admin'].includes(profile.role)) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 

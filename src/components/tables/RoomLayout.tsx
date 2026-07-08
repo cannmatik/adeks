@@ -437,7 +437,7 @@ export default function RoomLayout({ tables, selectedIds, onClickTable, onCartCl
           )}
         </Box>
         <Box sx={{ p: 2, pb: 12, bgcolor: 'background.paper', borderTop: 1, borderColor: 'divider' }}>
-          <Legend isDark={isDark} />
+          
         </Box>
         <Snackbar
           open={showMapHint && mobileViewMode === 'LIST'}
@@ -548,7 +548,7 @@ export default function RoomLayout({ tables, selectedIds, onClickTable, onCartCl
           </Box>
         </Box>
         <Box sx={{ p: 1.5, bgcolor: 'background.paper', borderTop: 1, borderColor: 'divider' }}>
-          <Legend isDark={isDark} />
+          
         </Box>
       </Dialog>
       </>
@@ -619,7 +619,7 @@ export default function RoomLayout({ tables, selectedIds, onClickTable, onCartCl
           </Box>
         ))}
         <Box sx={{ pt: 2 }}>
-          <Legend isDark={isDark} />
+          
         </Box>
       </Stack>
     );
@@ -711,7 +711,7 @@ export default function RoomLayout({ tables, selectedIds, onClickTable, onCartCl
           </Box>
         );
       })}
-      <Legend isDark={isDark} />
+      
     </Stack>
   );
 }
@@ -1183,14 +1183,13 @@ function MapMinimap({
   );
 }
 
-function Legend({ isDark }: { isDark: boolean }) {
+export function Legend({ isDark, categoryMeta }: { isDark: boolean; categoryMeta: Record<string, any> }) {
+  const categories = Object.entries(categoryMeta);
   return (
     <Stack direction="row" spacing={2} sx={{ mt: 1, justifyContent: 'center', flexWrap: 'wrap' }}>
-      <LegendDot color="#22C55E" label="Müsait" isDark={isDark} />
-      <LegendDot color="#F59E0B" label="Beklemede" filled isDark={isDark} />
-      <LegendDot color="#EF4444" label="Rezerve" filled isDark={isDark} />
-      <LegendDot color="#6366F1" label="Kullanımda" filled isDark={isDark} />
-      <LegendDot color="#71717A" label="Bakımda" filled isDark={isDark} />
+      {categories.map(([key, c]) => (
+        <LegendDot key={key} color={c.color || '#ccc'} label={c.label || key} isDark={isDark} filled />
+      ))}
     </Stack>
   );
 }

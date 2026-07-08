@@ -144,7 +144,7 @@ export default function ChatPanel({ reservationId, header }: Props) {
 
           <Collapse in={detailsOpen}>
             <Box sx={{ mt: 1, pt: 1, borderTop: '1px dashed', borderColor: 'divider' }}>
-              <ReservationDetails reservation={reservation} isAdmin={role === 'admin'} />
+              <ReservationDetails reservation={reservation} isAdmin={['admin', 'super_admin'].includes(role)} />
             </Box>
           </Collapse>
         </Paper>

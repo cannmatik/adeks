@@ -155,7 +155,7 @@ export default function Sidebar({ mobileOpen = false, onMobileClose, variant = '
           ))}
         </List>
 
-        {role === 'admin' && (
+        {['admin', 'super_admin'].includes(role || '') && (
           <>
             <Divider sx={{ my: 1 }}>
               <Typography variant="caption" sx={{ color: 'text.secondary' }}>
@@ -189,7 +189,7 @@ export default function Sidebar({ mobileOpen = false, onMobileClose, variant = '
         </Typography>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 0.5 }}>
           <Typography variant="caption" sx={{ color: 'primary.main', textTransform: 'uppercase', fontWeight: 700 }}>
-            {role === 'admin' ? 'Yönetici' : 'Müşteri'}
+            {['admin', 'super_admin'].includes(role || '') ? 'Yönetici' : 'Müşteri'}
           </Typography>
           <Box sx={{ display: 'flex', gap: 0.5 }}>
             <IconButton size="small" onClick={() => setProfileOpen(true)} title="Profil">

@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { createContext, useContext, useEffect, useState } from 'react'
 import type { User } from '@supabase/supabase-js'
 
-type Role = 'customer' | 'admin' | null
+type Role = 'customer' | 'admin' | 'super_admin' | null
 
 const AuthContext = createContext<{ user: User | null; role: Role; loading: boolean }>({
   user: null,

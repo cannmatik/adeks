@@ -23,7 +23,7 @@ export async function PATCH(req: Request) {
     .select('role')
     .eq('id', user.id)
     .single();
-  if (profile?.role !== 'admin') return NextResponse.json({ error: 'Yetkisiz' }, { status: 403 });
+  if (!['admin', 'super_admin'].includes(profile?.role)) return NextResponse.json({ error: 'Yetkisiz' }, { status: 403 });
 
   const body = await req.json();
   const { category, hourly_rate } = body;

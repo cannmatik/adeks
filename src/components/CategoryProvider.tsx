@@ -9,13 +9,14 @@ export interface Category {
   hourly_rate: number | string;
   color: string;
   description: string | null;
+  features: string[];
 }
 
 interface CategoryContextType {
   categories: Category[];
   categoryMeta: Record<
     string,
-    { label: string; short: string; color: string; defaultRate: number; description: string }
+    { label: string; short: string; color: string; defaultRate: number; description: string; features: string[] }
   >;
   loading: boolean;
   refreshCategories: () => Promise<void>;
@@ -61,7 +62,7 @@ export function CategoryProvider({
   // Build dynamic categoryMeta. Fallback to static CATEGORY_META for defaults if not in db.
   const categoryMeta: Record<
     string,
-    { label: string; short: string; color: string; defaultRate: number; description: string }
+    { label: string; short: string; color: string; defaultRate: number; description: string; features: string[] }
   > = { ...CATEGORY_META };
 
   categories.forEach((c) => {
@@ -71,6 +72,7 @@ export function CategoryProvider({
       color: c.color || '#C0C0C0',
       defaultRate: Number(c.hourly_rate),
       description: c.description || '',
+      features: c.features || [],
     };
   });
 

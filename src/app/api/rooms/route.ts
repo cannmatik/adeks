@@ -12,7 +12,7 @@ async function requireAdmin() {
     .select('role')
     .eq('id', user.id)
     .single();
-  if (profile?.role !== 'admin') return { error: 'Yetkisiz', status: 403 as const };
+  if (!['admin', 'super_admin'].includes(profile?.role)) return { error: 'Yetkisiz', status: 403 as const };
   return { supabase, userId: user.id } as const;
 }
 

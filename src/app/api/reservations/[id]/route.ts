@@ -14,7 +14,7 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
     .select('role')
     .eq('id', user.id)
     .single();
-  const isAdmin = profile?.role === 'admin';
+  const isAdmin = ['admin', 'super_admin'].includes(profile?.role);
 
   const body = await req.json();
   const { status, notes, admin_notes, start_time, end_time, contact_phone, table_ids } = body;

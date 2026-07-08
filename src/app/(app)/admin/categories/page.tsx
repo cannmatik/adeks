@@ -13,6 +13,7 @@ interface FormState {
   hourly_rate: number;
   color: string;
   description: string;
+  featuresText: string;
 }
 
 const emptyForm: FormState = {
@@ -21,6 +22,7 @@ const emptyForm: FormState = {
   hourly_rate: 0,
   color: '#C0C0C0',
   description: '',
+  featuresText: '',
 };
 
 export default function AdminCategoriesPage() {
@@ -59,6 +61,7 @@ export default function AdminCategoriesPage() {
       hourly_rate: Number(c.hourly_rate),
       color: c.color || '#C0C0C0',
       description: c.description || '',
+      featuresText: Array.isArray(c.features) ? c.features.join('\n') : '',
     });
     setDialogOpen(true);
   };
@@ -73,16 +76,21 @@ export default function AdminCategoriesPage() {
     setError('');
     setSuccess('');
     try {
+      const payload = {
+        ...form,
+        features: form.featuresText.split('\n').map((s) => s.trim()).filter(Boolean),
+      };
+
       const res = isEdit
         ? await fetch('/api/categories', {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(form),
+            body: JSON.stringify(payload),
           })
         : await fetch('/api/categories', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(form),
+            body: JSON.stringify(payload),
           });
 
       const data = await res.json();
@@ -253,6 +261,16 @@ export default function AdminCategoriesPage() {
             value={form.description}
             onChange={(e) => setForm({ ...form, description: e.target.value })}
             fullWidth
+          />
+          <TextField
+            label="Özellikler (Her satıra bir özellik)"
+            multiline
+            minRows={4}
+            value={form.featuresText}
+            onChange={(e) => setForm({ ...form, featuresText: e.target.value })}
+            fullWidth
+            placeholder="İşlemci: Intel Core i7&#10;GPU: RTX 3080&#10;RAM: 32GB"
+            helperText="Bu özellikler Dashboard'da kategori ücretleri altında maddeler halinde (accordion) gösterilir."
           />
         </Stack>
       }

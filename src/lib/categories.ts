@@ -4,7 +4,7 @@ export type ReservationStatus = 'REQUESTED' | 'CONFIRMED' | 'CANCELLED' | 'COMPL
 
 export const CATEGORY_META: Record<
   string,
-  { label: string; short: string; color: string; defaultRate: number; description: string }
+  { label: string; short: string; color: string; defaultRate: number; description: string; features: string[] }
 > = {
   SILVER: {
     label: 'Silver Gaming',
@@ -12,6 +12,7 @@ export const CATEGORY_META: Record<
     color: '#9CA3AF',
     defaultRate: 75,
     description: 'İnternet ve Oyun',
+    features: [],
   },
   GOLD: {
     label: 'Gold Gaming',
@@ -19,6 +20,7 @@ export const CATEGORY_META: Record<
     color: '#F59E0B',
     defaultRate: 85,
     description: 'Fiyat / Performans',
+    features: [],
   },
   PLATINUM: {
     label: 'Platinum Gaming',
@@ -26,6 +28,7 @@ export const CATEGORY_META: Record<
     color: '#3B82F6',
     defaultRate: 100,
     description: '240Hz Oyun Deneyimi',
+    features: [],
   },
   PLATINUM_PLUS: {
     label: 'Platinum Gaming +',
@@ -33,6 +36,7 @@ export const CATEGORY_META: Record<
     color: '#6366F1',
     defaultRate: 125,
     description: 'Üstün Performans',
+    features: [],
   },
   ELITE: {
     label: 'Elite Gaming',
@@ -40,6 +44,7 @@ export const CATEGORY_META: Record<
     color: '#EF4444',
     defaultRate: 180,
     description: 'Şansa Bırakma',
+    features: [],
   },
   STREAM_RENDER: {
     label: 'Stream Render',
@@ -47,6 +52,7 @@ export const CATEGORY_META: Record<
     color: '#10B981',
     defaultRate: 270,
     description: 'Oyna, Yap, İş Yap',
+    features: [],
   },
   GARDEN: {
     label: 'Bahçe',
@@ -54,6 +60,7 @@ export const CATEGORY_META: Record<
     color: '#22C55E',
     defaultRate: 0,
     description: 'Yemek ve içecek siparişi — saatlik ücret yok',
+    features: [],
   },
 }
 
