@@ -1,32 +1,11 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import {
-  Alert,
-  Box,
-  Button,
-  Card,
-  CardContent,
-  Chip,
-  CircularProgress,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
-  IconButton,
-  Stack,
-  TextField,
-  Typography,
-  Paper,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-} from '@mui/material';
-import { Add, Delete, Edit, Refresh, Category as CategoryIcon } from '@mui/icons-material';
+import { Box, Stack, TextField } from '@mui/material';
+import { GridColDef, GridActionsCellItem } from '@mui/x-data-grid';
+import { Edit, Delete, Refresh } from '@mui/icons-material';
 import { useCategories } from '@/components/CategoryProvider';
+import { AdminCrudPage } from '@/components/admin/AdminCrudPage';
 
 interface FormState {
   name: string;
@@ -143,163 +122,140 @@ export default function AdminCategoriesPage() {
     }
   };
 
-  return (
-    <Box>
-      <Stack direction="row" sx={{ justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-        <Box>
-          <Typography variant="h4" sx={{ mb: 0.5 }}>Kategori Yönetimi</Typography>
-          <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-            Masa ve salon kategorilerini düzenleyin, saatlik ücretlerini ve renklerini tanımlayın.
-          </Typography>
+  const columns: GridColDef[] = [
+    { field: 'name', headerName: 'Kod (Name)', width: 120, headerAlign: 'left', align: 'left', renderCell: (params) => (
+      <Box sx={{ fontWeight: 800 }}>{params.value}</Box>
+    )},
+    { field: 'label', headerName: 'Kategori Adı (Label)', flex: 1, minWidth: 200, renderCell: (params) => (
+      <Box sx={{ fontWeight: 600 }}>{params.value}</Box>
+    )},
+    { field: 'hourly_rate', headerName: 'Saatlik Ücret', width: 150, renderCell: (params) => (
+      <Box sx={{ fontWeight: 700, color: 'primary.main' }}>
+        {Number(params.value).toFixed(2)} ₺ / saat
+      </Box>
+    )},
+    { field: 'color', headerName: 'Renk', width: 150, renderCell: (params) => (
+      <Stack direction="row" spacing={1} sx={{ alignItems: 'center', height: '100%' }}>
+        <Box
+          sx={{
+            width: 18,
+            height: 18,
+            borderRadius: '50%',
+            bgcolor: params.value,
+            border: '1px solid rgba(0,0,0,0.1)',
+            boxShadow: `0 0 8px ${params.value}66`,
+          }}
+        />
+        <Box sx={{ fontFamily: 'monospace', fontSize: '0.875rem' }}>
+          {params.value}
         </Box>
-        <Stack direction="row" spacing={1}>
-          <IconButton onClick={load} disabled={loading || saving} title="Yenile">
-            <Refresh />
-          </IconButton>
-          <Button variant="contained" startIcon={<Add />} onClick={openNew}>
-            Yeni Kategori
-          </Button>
-        </Stack>
       </Stack>
+    )},
+    { field: 'description', headerName: 'Açıklama', flex: 1.5, minWidth: 250, renderCell: (params) => (
+      <Box sx={{ color: 'text.secondary' }}>{params.value || '—'}</Box>
+    )},
+    {
+      field: 'actions',
+      type: 'actions',
+      headerName: 'İşlemler',
+      width: 100,
+      getActions: (params) => [
+        <GridActionsCellItem
+          key="edit"
+          icon={<Edit />}
+          label="Düzenle"
+          onClick={() => openEdit(params.row)}
+          color="primary"
+        />,
+        <GridActionsCellItem
+          key="delete"
+          icon={<Delete color="error" />}
+          label="Sil"
+          onClick={() => handleDelete(params.row.name)}
+        />,
+      ],
+    },
+  ];
 
-      {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>{error}</Alert>}
-      {success && <Alert severity="success" sx={{ mb: 2 }} onClose={() => setSuccess('')}>{success}</Alert>}
-
-      {loading && categories.length === 0 ? (
-        <Box sx={{ textAlign: 'center', py: 8 }}>
-          <CircularProgress />
-        </Box>
-      ) : (
-        <TableContainer component={Paper} elevation={0} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2 }}>
-          <Table>
-            <TableHead>
-              <TableRow sx={{ bgcolor: 'background.neutral' }}>
-                <TableCell sx={{ fontWeight: 700 }}>Kod (Name)</TableCell>
-                <TableCell sx={{ fontWeight: 700 }}>Kategori Adı (Label)</TableCell>
-                <TableCell sx={{ fontWeight: 700 }}>Saatlik Ücret</TableCell>
-                <TableCell sx={{ fontWeight: 700 }}>Renk</TableCell>
-                <TableCell sx={{ fontWeight: 700 }}>Açıklama</TableCell>
-                <TableCell align="right" sx={{ fontWeight: 700 }}>İşlemler</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {categories.map((c) => (
-                <TableRow key={c.name} sx={{ '&:last-child td, &:last-child th': { border: 0 } }}>
-                  <TableCell component="th" scope="row">
-                    <Chip label={c.name} size="small" sx={{ fontWeight: 800 }} />
-                  </TableCell>
-                  <TableCell sx={{ fontWeight: 600 }}>{c.label}</TableCell>
-                  <TableCell sx={{ fontWeight: 700, color: 'primary.main' }}>
-                    {Number(c.hourly_rate).toFixed(2)} ₺ / saat
-                  </TableCell>
-                  <TableCell>
-                    <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
-                      <Box
-                        sx={{
-                          width: 18,
-                          height: 18,
-                          borderRadius: '50%',
-                          bgcolor: c.color,
-                          border: '1px solid rgba(0,0,0,0.1)',
-                          boxShadow: `0 0 8px ${c.color}66`,
-                        }}
-                      />
-                      <Typography variant="body2" sx={{ fontFamily: 'monospace' }}>
-                        {c.color}
-                      </Typography>
-                    </Stack>
-                  </TableCell>
-                  <TableCell sx={{ color: 'text.secondary' }}>{c.description || '—'}</TableCell>
-                  <TableCell align="right">
-                    <Stack direction="row" spacing={0.5} sx={{ justifyContent: 'flex-end' }}>
-                      <IconButton onClick={() => openEdit(c)} size="small" color="primary">
-                        <Edit fontSize="small" />
-                      </IconButton>
-                      <IconButton
-                        onClick={() => handleDelete(c.name)}
-                        size="small"
-                        color="error"
-                      >
-                        <Delete fontSize="small" />
-                      </IconButton>
-                    </Stack>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </TableContainer>
-      )}
-
-      <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="xs" fullWidth>
-        <DialogTitle>{isEdit ? 'Kategoriyi Düzenle' : 'Yeni Kategori Ekle'}</DialogTitle>
-        <DialogContent>
-          <Stack spacing={2} sx={{ mt: 1 }}>
-            <TextField
-              label="Kod (Örn: ELITE, GOLD)"
-              value={form.name}
-              onChange={(e) => setForm({ ...form, name: e.target.value.toUpperCase() })}
-              disabled={isEdit}
-              fullWidth
-              helperText="Sadece büyük harf ve rakam girin. Bir kere kaydedildikten sonra değiştirilemez."
-            />
-            <TextField
-              label="Kategori Adı (Örn: Gold Gaming)"
-              value={form.label}
-              onChange={(e) => setForm({ ...form, label: e.target.value })}
-              fullWidth
-            />
-            <TextField
-              label="Saatlik Ücret (₺)"
-              type="number"
-              value={form.hourly_rate}
-              onChange={(e) => setForm({ ...form, hourly_rate: Number(e.target.value) })}
-              slotProps={{ inputLabel: { shrink: true } }}
-              fullWidth
-            />
-            <TextField
-              label="Kategori Rengi (Hex)"
-              value={form.color}
-              onChange={(e) => setForm({ ...form, color: e.target.value })}
-              fullWidth
-              placeholder="#FFFFFF"
-              slotProps={{
-                input: {
-                  startAdornment: (
-                    <Box
-                      component="span"
-                      sx={{
-                        width: 16,
-                        height: 16,
-                        borderRadius: '50%',
-                        bgcolor: form.color || '#C0C0C0',
-                        display: 'inline-block',
-                        mr: 1,
-                        border: '1px solid rgba(0,0,0,0.1)',
-                        boxShadow: `0 0 6px ${form.color}44`,
-                      }}
-                    />
-                  ),
-                },
-              }}
-            />
-            <TextField
-              label="Açıklama"
-              multiline
-              minRows={2}
-              value={form.description}
-              onChange={(e) => setForm({ ...form, description: e.target.value })}
-              fullWidth
-            />
-          </Stack>
-        </DialogContent>
-        <DialogActions sx={{ px: 3, pb: 2 }}>
-          <Button onClick={() => setDialogOpen(false)} disabled={saving}>İptal</Button>
-          <Button onClick={handleSave} variant="contained" disabled={saving}>
-            {saving ? 'Kaydediliyor...' : 'Kaydet'}
-          </Button>
-        </DialogActions>
-      </Dialog>
-    </Box>
+  return (
+    <AdminCrudPage
+      title="Kategori Yönetimi"
+      description="Masa ve salon kategorilerini düzenleyin, saatlik ücretlerini ve renklerini tanımlayın."
+      primaryActionLabel="Yeni Kategori"
+      onPrimaryAction={openNew}
+      error={error}
+      success={success}
+      onErrorClose={() => setError('')}
+      onSuccessClose={() => setSuccess('')}
+      loading={loading || (categories.length === 0 && !error && !success)}
+      rows={categories}
+      columns={columns}
+      getRowId={(row) => row.name}
+      dialogOpen={dialogOpen}
+      onDialogClose={() => setDialogOpen(false)}
+      dialogTitle={isEdit ? 'Kategoriyi Düzenle' : 'Yeni Kategori Ekle'}
+      saving={saving}
+      onSave={handleSave}
+      renderForm={
+        <Stack spacing={2} sx={{ mt: 1 }}>
+          <TextField
+            label="Kod (Örn: ELITE, GOLD)"
+            value={form.name}
+            onChange={(e) => setForm({ ...form, name: e.target.value.toUpperCase() })}
+            disabled={isEdit}
+            fullWidth
+            helperText="Sadece büyük harf ve rakam girin. Bir kere kaydedildikten sonra değiştirilemez."
+          />
+          <TextField
+            label="Kategori Adı (Örn: Gold Gaming)"
+            value={form.label}
+            onChange={(e) => setForm({ ...form, label: e.target.value })}
+            fullWidth
+          />
+          <TextField
+            label="Saatlik Ücret (₺)"
+            type="number"
+            value={form.hourly_rate}
+            onChange={(e) => setForm({ ...form, hourly_rate: Number(e.target.value) })}
+            slotProps={{ inputLabel: { shrink: true } }}
+            fullWidth
+          />
+          <TextField
+            label="Kategori Rengi (Hex)"
+            value={form.color}
+            onChange={(e) => setForm({ ...form, color: e.target.value })}
+            fullWidth
+            placeholder="#FFFFFF"
+            slotProps={{
+              input: {
+                startAdornment: (
+                  <Box
+                    component="span"
+                    sx={{
+                      width: 16,
+                      height: 16,
+                      borderRadius: '50%',
+                      bgcolor: form.color || '#C0C0C0',
+                      display: 'inline-block',
+                      mr: 1,
+                      border: '1px solid rgba(0,0,0,0.1)',
+                      boxShadow: `0 0 6px ${form.color}44`,
+                    }}
+                  />
+                ),
+              },
+            }}
+          />
+          <TextField
+            label="Açıklama"
+            multiline
+            minRows={2}
+            value={form.description}
+            onChange={(e) => setForm({ ...form, description: e.target.value })}
+            fullWidth
+          />
+        </Stack>
+      }
+    />
   );
 }
