@@ -19,6 +19,15 @@ export const metadata: Metadata = {
   ),
   title: 'ADEKS İnternet Kafe',
   description: 'Masa rezervasyonu, kategori bazlı oyun istasyonları ve canlı destek.',
+  manifest: '/manifest.json',
+  icons: {
+    icon: [
+      { url: '/favicon.ico' },
+      { url: '/android-chrome-192x192.png', sizes: '192x192', type: 'image/png' },
+      { url: '/android-chrome-512x512.png', sizes: '512x512', type: 'image/png' },
+    ],
+    apple: '/apple-touch-icon.png',
+  },
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
