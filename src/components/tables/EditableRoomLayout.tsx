@@ -88,6 +88,44 @@ export default function EditableRoomLayout({
 
   const groups = useMemo(() => groupByRoom(rooms, tables), [rooms, tables]);
 
+  const [mounted, setMounted] = useState(false);
+  React.useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  const [selectedMobileRoomId, setSelectedMobileRoomId] = useState<string | null>(null);
+  const [editingRoomId, setEditingRoomId] = useState<string | null>(null);
+  const [hoverPos, setHoverPos] = useState<{ x: number; y: number } | null>(null);
+
+  React.useEffect(() => {
+    if (!placingRoom) {
+      setHoverPos(null);
+    }
+  }, [placingRoom]);
+
+  const byFloor = useMemo(() => {
+    const map = new Map<string, Group[]>();
+    for (const g of groups) {
+      const f = g.room.floor ?? '1';
+      if (!map.has(f)) map.set(f, []);
+      map.get(f)!.push(g);
+    }
+    return Array.from(map.entries()).sort(([a], [b]) => a.localeCompare(b));
+  }, [groups]);
+
+  const floorObjectsByFloor = useMemo(() => {
+    const map = new Map<string, FloorObjectItem[]>();
+    for (const o of floorObjects) {
+      if (!map.has(o.floor)) map.set(o.floor, []);
+      map.get(o.floor)!.push(o);
+    }
+    return map;
+  }, [floorObjects]);
+
+  if (!mounted) {
+    return null; // Wait for hydration to complete to avoid mismatch on useMediaQuery
+  }
+
   const handleRoomMove = (roomId: string, floorCol: number, floorRow: number) => {
     if (!onRoomMove) return;
     const moving = rooms.find((r) => r.id === roomId);
@@ -163,24 +201,7 @@ export default function EditableRoomLayout({
     onRoomPlace(floor, col, row);
   };
 
-  const byFloor = useMemo(() => {
-    const map = new Map<string, Group[]>();
-    for (const g of groups) {
-      const f = g.room.floor ?? '1';
-      if (!map.has(f)) map.set(f, []);
-      map.get(f)!.push(g);
-    }
-    return Array.from(map.entries()).sort(([a], [b]) => a.localeCompare(b));
-  }, [groups]);
 
-  const [selectedMobileRoomId, setSelectedMobileRoomId] = useState<string | null>(null);
-  const [hoverPos, setHoverPos] = useState<{ x: number; y: number } | null>(null);
-
-  React.useEffect(() => {
-    if (!placingRoom) {
-      setHoverPos(null);
-    }
-  }, [placingRoom]);
 
   if (groups.length === 0) return null;
 
@@ -216,6 +237,8 @@ export default function EditableRoomLayout({
               onTableAdd={onTableAdd}
               onRoomEdit={onRoomEdit}
               onRoomResize={onRoomResize}
+              isEditing={editingRoomId === group.room.id}
+              onEditChange={(e) => setEditingRoomId(e ? group.room.id : null)}
             />
           </Box>
         </Box>
@@ -282,14 +305,6 @@ export default function EditableRoomLayout({
   }
 
   // Desktop View
-  const floorObjectsByFloor = useMemo(() => {
-    const map = new Map<string, FloorObjectItem[]>();
-    for (const o of floorObjects) {
-      if (!map.has(o.floor)) map.set(o.floor, []);
-      map.get(o.floor)!.push(o);
-    }
-    return map;
-  }, [floorObjects]);
 
   return (
     <Stack spacing={3}>
@@ -399,6 +414,8 @@ export default function EditableRoomLayout({
                   onRoomEdit={onRoomEdit}
                   onRoomResize={onRoomResize}
                   onRoomMove={handleRoomMove}
+                  isEditing={editingRoomId === g.room.id}
+                  onEditChange={(e) => setEditingRoomId(e ? g.room.id : null)}
                 />
               ))}
 

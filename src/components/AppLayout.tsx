@@ -1,10 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, ReactNode } from 'react';
 import { Box, AppBar, Toolbar, IconButton, Typography, useTheme, useMediaQuery } from '@mui/material';
 import { Menu as MenuIcon } from '@mui/icons-material';
 import { usePathname } from 'next/navigation';
-import { ReactNode } from 'react';
 import Sidebar from './Sidebar';
 import ThemeToggle from './ThemeToggle';
 
@@ -14,8 +13,7 @@ const pageTitles: Record<string, string> = {
   '/messages': 'Mesajlar',
   '/admin/sessions': 'Anlık Durum',
   '/admin/floor-plan': 'Salon Düzeni',
-  '/admin/tables': 'Masa Yönetimi',
-  '/admin/sections': 'Bölüm Yönetimi',
+  '/admin/sections': 'Bölüm / Masa Yönetimi',
   '/admin/categories': 'Kategori Yönetimi',
   '/admin/reservations': 'Rezervasyonlar',
   '/admin/messages': 'Tüm Mesajlar',
@@ -38,6 +36,11 @@ export default function AppLayout({ children, title }: { children: ReactNode; ti
   const pathname = usePathname();
   const pageTitle = title || getTitle(pathname);
 
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   const handleDrawerToggle = () => {
     setMobileOpen(!mobileOpen);
   };
@@ -45,6 +48,10 @@ export default function AppLayout({ children, title }: { children: ReactNode; ti
   const handleDrawerClose = () => {
     setMobileOpen(false);
   };
+
+  if (!mounted) {
+    return <Box sx={{ display: 'flex', minHeight: '100vh', bgcolor: 'background.default' }} />;
+  }
 
   return (
     <Box sx={{ display: 'flex', minHeight: '100vh', bgcolor: 'background.default' }}>

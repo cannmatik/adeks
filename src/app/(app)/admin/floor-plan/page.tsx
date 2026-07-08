@@ -152,6 +152,7 @@ export default function AdminFloorPlanPage() {
       (orig.col_span ?? 0) !== (curr.col_span ?? 0) ||
       (orig.row_span ?? 0) !== (curr.row_span ?? 0) ||
       (orig.category ?? '') !== (curr.category ?? '') ||
+      (orig.short_code ?? '') !== (curr.short_code ?? '') ||
       (orig.floor_col ?? 0) !== (curr.floor_col ?? 0) ||
       (orig.floor_row ?? 0) !== (curr.floor_row ?? 0)
     );
@@ -415,7 +416,7 @@ export default function AdminFloorPlanPage() {
       id: crypto.randomUUID(),
       name: roomName.trim(),
       floor: roomFloor,
-      color: roomColor,
+      color: roomCategory ? (categoryMeta[roomCategory]?.color || '#7E7E85') : '#7E7E85',
       col_span: preset.cols,
       row_span: preset.rows,
       display_order: rooms.length,
@@ -440,7 +441,7 @@ export default function AdminFloorPlanPage() {
       ...editRoom,
       name: roomName.trim(),
       floor: roomFloor,
-      color: roomColor,
+      color: roomCategory ? (categoryMeta[roomCategory]?.color || '#7E7E85') : '#7E7E85',
       category: roomCategory || null,
       short_code: roomShortCode || null,
     };
@@ -571,6 +572,7 @@ export default function AdminFloorPlanPage() {
             row_span: r.row_span,
             display_order: r.display_order,
             category: r.category,
+            short_code: r.short_code,
             floor_col: r.floor_col,
             floor_row: r.floor_row,
           }),
@@ -745,6 +747,7 @@ export default function AdminFloorPlanPage() {
               col_span: r.col_span,
               row_span: r.row_span,
               category: r.category,
+              short_code: r.short_code,
               floor_col: r.floor_col,
               floor_row: r.floor_row,
             }),
@@ -1132,31 +1135,6 @@ export default function AdminFloorPlanPage() {
                 fullWidth
                 placeholder="1, 2, Bahçe..."
               />
-              <TextField
-                label="Renk"
-                value={roomColor}
-                onChange={(e) => setRoomColor(e.target.value)}
-                fullWidth
-                placeholder="#7E7E85"
-                slotProps={{
-                  input: {
-                    startAdornment: (
-                      <Box
-                        component="span"
-                        sx={{
-                          width: 16,
-                          height: 16,
-                          borderRadius: '50%',
-                          bgcolor: roomColor || '#7E7E85',
-                          display: 'inline-block',
-                          mr: 1,
-                          border: '1px solid rgba(0,0,0,0.1)',
-                        }}
-                      />
-                    ),
-                  },
-                }}
-              />
             </Stack>
             <TextField
               select
@@ -1222,31 +1200,6 @@ export default function AdminFloorPlanPage() {
                 onChange={(e) => setRoomFloor(e.target.value)}
                 fullWidth
                 placeholder="1, 2, Bahçe..."
-              />
-              <TextField
-                label="Renk"
-                value={roomColor}
-                onChange={(e) => setRoomColor(e.target.value)}
-                fullWidth
-                placeholder="#7E7E85"
-                slotProps={{
-                  input: {
-                    startAdornment: (
-                      <Box
-                        component="span"
-                        sx={{
-                          width: 16,
-                          height: 16,
-                          borderRadius: '50%',
-                          bgcolor: roomColor || '#7E7E85',
-                          display: 'inline-block',
-                          mr: 1,
-                          border: '1px solid rgba(0,0,0,0.1)',
-                        }}
-                      />
-                    ),
-                  },
-                }}
               />
             </Stack>
             <TextField

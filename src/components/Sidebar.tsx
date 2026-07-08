@@ -53,8 +53,7 @@ const customerLinks = [
 const adminLinks = [
   { href: '/admin/sessions', label: 'Anlık Durum', icon: <Bolt /> },
   { href: '/admin/floor-plan', label: 'Salon Düzeni', icon: <Map /> },
-  { href: '/admin/tables', label: 'Masa Yönetimi', icon: <TableRestaurant /> },
-  { href: '/admin/sections', label: 'Bölüm Yönetimi', icon: <MeetingRoom /> },
+  { href: '/admin/sections', label: 'Bölüm / Masa Yönetimi', icon: <MeetingRoom /> },
   { href: '/admin/categories', label: 'Kategori Yönetimi', icon: <CategoryIcon /> },
   { href: '/admin/reservations', label: 'Rezervasyonlar', icon: <EventAvailable /> },
   { href: '/admin/settings', label: 'Kafe Ayarları', icon: <Settings /> },

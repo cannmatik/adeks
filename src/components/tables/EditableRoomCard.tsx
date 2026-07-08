@@ -19,6 +19,8 @@ interface Props {
   onRoomEdit?: (room: RoomLite) => void;
   onRoomResize?: (roomId: string, colSpan: number, rowSpan: number) => void;
   onRoomMove?: (roomId: string, floorCol: number, floorRow: number) => void;
+  isEditing?: boolean;
+  onEditChange?: (editing: boolean) => void;
 }
 
 export default function EditableRoomCard({
@@ -32,9 +34,16 @@ export default function EditableRoomCard({
   onRoomEdit,
   onRoomResize,
   onRoomMove,
+  isEditing: externalIsEditing,
+  onEditChange,
 }: Props) {
   // Per-room edit mode
-  const [isEditing, setIsEditing] = React.useState(false);
+  const [internalIsEditing, setInternalIsEditing] = React.useState(false);
+  const isEditing = externalIsEditing !== undefined ? externalIsEditing : internalIsEditing;
+  const setIsEditing = React.useCallback((val: boolean) => {
+    if (onEditChange) onEditChange(val);
+    else setInternalIsEditing(val);
+  }, [onEditChange]);
   const [dragging, setDragging] = React.useState(false);
   const [dragOffset, setDragOffset] = React.useState({ x: 0, y: 0 });
   const [previewPos, setPreviewPos] = React.useState<{ x: number; y: number } | null>(null);
