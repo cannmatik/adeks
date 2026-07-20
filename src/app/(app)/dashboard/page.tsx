@@ -27,7 +27,19 @@ function defaultEnd() {
   return dayjs().add(55, 'minute').add(1, 'hour').second(0).millisecond(0);
 }
 
+import { useAuth } from '@/components/AuthProvider';
+import { useRouter } from 'next/navigation';
+
 export default function DashboardPage() {
+  const { user } = useAuth();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (user?.email?.startsWith('anon_')) {
+      router.replace('/session');
+    }
+  }, [user, router]);
+
   const { categories: dbCategories, categoryMeta } = useCategories();
   const categoriesList = useMemo(() => ['ALL', ...dbCategories.map((c) => c.name)], [dbCategories]);
 

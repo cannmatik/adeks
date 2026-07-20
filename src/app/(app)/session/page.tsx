@@ -4,8 +4,13 @@ import { useEffect, useState, useMemo } from 'react';
 import { Box, Typography, Card, CardContent, CircularProgress, Button, Chip, Divider, IconButton, Snackbar, Alert, Tabs, Tab, Dialog, DialogTitle, DialogContent, DialogActions, TextField, Badge } from '@mui/material';
 import { Add, Remove, ShoppingCart, Build as BuildIcon, Send as SendIcon } from '@mui/icons-material';
 import { createClient } from '@/lib/supabase/client';
+import { useAuth } from '@/components/AuthProvider';
+import { useRouter } from 'next/navigation';
 
 export default function SessionPage() {
+  const { user } = useAuth();
+  const router = useRouter();
+  
   const [session, setSession] = useState<any>(null);
   const [menuItems, setMenuItems] = useState<any[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string>('');
@@ -158,6 +163,15 @@ export default function SessionPage() {
   if (loading) return <Box sx={{ display: 'flex', justifyContent: 'center', mt: 10 }}><CircularProgress /></Box>;
 
   if (!session) {
+    if (user?.email?.startsWith('anon_')) {
+      // If anonymous user has no session, it means their session ended.
+      // Sign them out automatically and redirect to join page.
+      supabase.auth.signOut().then(() => {
+        router.push('/join');
+      });
+      return <Box sx={{ display: 'flex', justifyContent: 'center', mt: 10 }}><CircularProgress /></Box>;
+    }
+
     return (
       <Box sx={{ p: 4, textAlign: 'center' }}>
         <Typography variant="h5" gutterBottom>Aktif Oturum Bulunamadı</Typography>

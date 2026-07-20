@@ -11,7 +11,19 @@ import ReservationsSkeleton from '@/components/reservations/ReservationsSkeleton
 import { ReservationRow } from '@/components/reservations/ReservationCard';
 import { CafeTable } from '@/components/tables/TableCard';
 
+import { useAuth } from '@/components/AuthProvider';
+import { useRouter } from 'next/navigation';
+
 export default function ReservationsPage() {
+  const { user } = useAuth();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (user?.email?.startsWith('anon_')) {
+      router.replace('/session');
+    }
+  }, [user, router]);
+
   const [items, setItems] = useState<ReservationRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');

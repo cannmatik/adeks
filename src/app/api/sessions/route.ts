@@ -27,7 +27,7 @@ export async function GET(req: Request) {
   let query = auth.supabase
     .from('table_sessions')
     .select(
-      `id, table_id, kind, user_id, anonymous_label, reservation_id, started_at, ended_at,
+      `id, table_id, kind, user_id, session_code, anonymous_label, reservation_id, started_at, ended_at,
        hourly_rate_snapshot, amount_charged, notes, needs_support, support_message,
        table:tables(id, number, category, status),
        user:profiles!table_sessions_user_id_fkey(id, full_name, email),
@@ -81,6 +81,7 @@ export async function POST(req: Request) {
       kind,
       user_id: kind === 'MEMBER' ? user_id : null,
       anonymous_label: kind === 'ANONYMOUS' ? anonymous_label ?? 'Misafir' : null,
+      session_code: Math.floor(100000 + Math.random() * 900000).toString(), // 6 digit random code
       reservation_id: reservation_id ?? null,
       hourly_rate_snapshot: categoryRow?.hourly_rate ?? null,
       notes: notes ?? null,

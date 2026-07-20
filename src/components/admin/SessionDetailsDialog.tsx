@@ -18,7 +18,8 @@ import {
   Autocomplete,
   createFilterOptions
 } from '@mui/material';
-import { ReportProblem } from '@mui/icons-material';
+import { ReportProblem, QrCode } from '@mui/icons-material';
+import { QRCodeSVG } from 'qrcode.react';
 
 interface SessionDetailsDialogProps {
   open: boolean;
@@ -93,6 +94,28 @@ export default function SessionDetailsDialog({
         <Typography variant="subtitle1" gutterBottom>
           <strong>Başlangıç:</strong> {new Date(sessionDetails.started_at).toLocaleTimeString()}
         </Typography>
+
+        {sessionDetails.session_code && (
+          <Box sx={{ mt: 2, mb: 2, p: 2, bgcolor: 'background.default', borderRadius: 2, display: 'flex', gap: 3, alignItems: 'center' }}>
+            <Box sx={{ p: 1, bgcolor: 'white', borderRadius: 1 }}>
+              <QRCodeSVG 
+                value={typeof window !== 'undefined' ? `${window.location.origin}/join?table=${sessionDetails.table?.number}&code=${sessionDetails.session_code}` : ''} 
+                size={100} 
+              />
+            </Box>
+            <Box>
+              <Typography variant="subtitle2" color="text.secondary" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                <QrCode fontSize="small" /> Masadan Sipariş & Misafir Girişi
+              </Typography>
+              <Typography variant="h4" sx={{ fontWeight: 'bold', letterSpacing: 4, color: 'primary.main' }}>
+                {sessionDetails.session_code}
+              </Typography>
+              <Typography variant="caption" color="text.secondary">
+                Müşteri bu kodu girerek veya QR'ı okutarak kendi cihazından sipariş verebilir.
+              </Typography>
+            </Box>
+          </Box>
+        )}
         
         <Divider sx={{ my: 2 }} />
         

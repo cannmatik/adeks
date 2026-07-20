@@ -154,7 +154,7 @@ export default function Sidebar({ mobileOpen = false, onMobileClose, variant = '
       <Divider />
       <Box sx={{ flex: 1, overflowY: 'auto', px: 1, py: 1 }}>
         <List dense>
-          {customerLinks.map((l) => (
+          {!user?.email?.startsWith('anon_') && customerLinks.map((l) => (
             <ListItem key={l.href} disablePadding>
               <ListItemButton
                 component={Link}

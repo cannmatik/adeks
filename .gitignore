@@ -6,4 +6,4 @@ node_modules/
 src/generated/
 next-env.d.ts
 tsconfig.tsbuildinfo
-scratch/
+.mcp.json
